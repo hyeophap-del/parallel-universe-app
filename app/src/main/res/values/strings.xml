@@ -57,6 +57,10 @@
     <string name="section_settings">공간 설정</string>
     <string name="space_name_label">공간 이름: %1$s</string>
     <string name="rename">이름 변경</string>
+    <string name="personal_files_title">파일 첨부할 때 개인 파일 보기</string>
+    <string name="personal_files_body">복제한 앱에서 파일을 첨부하면 \'개인\' 탭이 있는 기본 파일 선택 화면이 열립니다. 대신 평행 공간 안의 \'내 파일\' 앱이 숨겨집니다(개인 공간의 \'내 파일\'은 그대로입니다).</string>
+    <string name="personal_files_on">이제 파일 첨부 화면에서 \'개인\' 탭을 쓸 수 있습니다</string>
+    <string name="personal_files_off">평행 공간의 \'내 파일\'을 다시 표시합니다</string>
     <string name="rename_title">공간 이름 변경</string>
     <string name="save">저장</string>
     <string name="quiet_mode_warning">업무 앱이 일시중지되어 있습니다. 이 상태에서는 복제한 앱이 실행되지 않고 알림도 오지 않습니다. 빠른 설정에서 \'업무 앱\'을 켜세요.</string>

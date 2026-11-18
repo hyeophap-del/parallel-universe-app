@@ -3,7 +3,7 @@ package app.paralleluniverse.profile
 /** 개인 공간 → 평행 공간 명령. 한 줄 텍스트로 주고받는다: `PU1<TAB>ACTION<TAB>ARG` */
 data class BridgeCommand(val action: Action, val arg: String = "") {
 
-    enum class Action { CLONE, UNINSTALL, RENAME, DESTROY }
+    enum class Action { CLONE, UNINSTALL, RENAME, DESTROY, PERSONAL_FILES }
 
     companion object {
         private const val MAGIC = "PU1"
@@ -15,6 +15,7 @@ data class BridgeCommand(val action: Action, val arg: String = "") {
         fun uninstall(packageName: String) = BridgeCommand(Action.UNINSTALL, packageName)
         fun rename(name: String) = BridgeCommand(Action.RENAME, name)
         fun destroy() = BridgeCommand(Action.DESTROY)
+        fun personalFiles(enabled: Boolean) = BridgeCommand(Action.PERSONAL_FILES, if (enabled) "on" else "off")
 
         fun encode(command: BridgeCommand): String =
             listOf(MAGIC, command.action.name, sanitize(command.arg)).joinToString(SEP.toString())

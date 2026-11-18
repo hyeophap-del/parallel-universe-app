@@ -61,6 +61,8 @@ class MainActivity : ComponentActivity() {
                             ProfileSetup.rename(applicationContext, command.arg)
                             true
                         }
+                        BridgeCommand.Action.PERSONAL_FILES ->
+                            ProfileActions.setPersonalFilesInPicker(applicationContext, command.arg == "on")
                         BridgeCommand.Action.UNINSTALL -> true
                         BridgeCommand.Action.DESTROY -> {
                             destroyRequested = true

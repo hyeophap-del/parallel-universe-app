@@ -25,6 +25,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,6 +51,7 @@ import app.paralleluniverse.profile.CloneRepository
 import app.paralleluniverse.profile.LocalBridge
 import app.paralleluniverse.profile.ProfileRequester
 import app.paralleluniverse.profile.SpaceName
+import app.paralleluniverse.profile.SpaceSettings
 import app.paralleluniverse.shortcut.CloneShortcuts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -74,6 +76,8 @@ fun AppListScreen(
     var shortcutTarget by remember { mutableStateOf<AppEntry?>(null) }
     var renaming by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    var personalFiles by remember { mutableStateOf(SpaceSettings.personalFiles(context)) }
+    val hasSamsungMyFiles = remember { SpaceSettings.hasSamsungMyFiles(context) }
 
     LaunchedEffect(profile, refreshKey, localRefresh) {
         snapshot = withContext(Dispatchers.Default) { repository.load(profile) }
@@ -200,6 +204,35 @@ fun AppListScreen(
                 )
                 TextButton(enabled = !busy, onClick = { renaming = true }) {
                     Text(stringResource(R.string.rename))
+                }
+            }
+        }
+        if (hasSamsungMyFiles) {
+            item {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.personal_files_title), style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            stringResource(R.string.personal_files_body),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = personalFiles,
+                        enabled = !busy && paired,
+                        onCheckedChange = { on ->
+                            send(
+                                BridgeCommand.personalFiles(on),
+                                okMessage = context.getString(
+                                    if (on) R.string.personal_files_on else R.string.personal_files_off,
+                                ),
+                            ) {
+                                SpaceSettings.setPersonalFiles(context, on)
+                                personalFiles = on
+                            }
+                        },
+                    )
                 }
             }
         }
