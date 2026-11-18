@@ -40,11 +40,34 @@ object ProfileSetup {
 
         dpm.setProfileEnabled(admin)
 
-        val pick = context.packageManager.queryIntentActivities(
-            Intent(Intent.ACTION_GET_CONTENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*"),
-            PackageManager.MATCH_DEFAULT_ONLY,
+        // [DEBUG-pu7] probe (a): custom managed->parent filter
+        try {
+            dpm.addCrossProfileIntentFilter(
+                admin,
+                IntentFilter("app.paralleluniverse.action.PICK_APP").apply { addCategory(Intent.CATEGORY_DEFAULT) },
+                DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT,
+            )
+        } catch (e: Exception) {
+            Log.e("DEBUG-pu7", "probe a add failed", e)
+        }
+        val probeA = context.packageManager.queryIntentActivities(
+            Intent("app.paralleluniverse.action.PICK_APP"), PackageManager.MATCH_DEFAULT_ONLY,
         )
-        Log.i("DEBUG-pu7", "profile GET_CONTENT image/* -> ${pick.map { it.activityInfo.name }}")
+        Log.i("DEBUG-pu7", "probe a PICK_APP -> ${probeA.map { it.activityInfo.name }}")
+
+        // [DEBUG-pu7] probe (b): connected apps (INTERACT_ACROSS_PROFILES)
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            try {
+                dpm.setCrossProfilePackages(admin, setOf(context.packageName))
+                val cpa = context.getSystemService(android.content.pm.CrossProfileApps::class.java)
+                Log.i(
+                    "DEBUG-pu7",
+                    "probe b canRequest=${cpa.canRequestInteractAcrossProfiles()} canInteract=${cpa.canInteractAcrossProfiles()}",
+                )
+            } catch (e: Exception) {
+                Log.e("DEBUG-pu7", "probe b failed", e)
+            }
+        }
     }
 
     fun rename(context: Context, name: String) {

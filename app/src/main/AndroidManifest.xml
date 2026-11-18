@@ -27,6 +27,11 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- [DEBUG-pu7] probe (a) target -->
+            <intent-filter>
+                <action android:name="app.paralleluniverse.action.PICK_APP" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <!-- 홈 화면 바로가기가 실행하는 투명 Activity: 평행 공간의 앱을 열고 바로 닫힌다. -->
