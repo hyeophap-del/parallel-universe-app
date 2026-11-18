@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">평행우주</string>
+    <string name="profile_name">평행 공간</string>
+    <string name="refresh">새로고침</string>
+
+    <!-- 온보딩 -->
+    <string name="onboarding_title">앱을 두 개로 실행하세요</string>
+    <string name="onboarding_body">평행 공간은 Android의 공식 업무 프로필 기능으로 만드는 분리된 공간입니다. 여기에 디스코드 같은 앱을 하나 더 두면 서로 다른 계정으로 동시에 로그인하고, 두 앱의 알림을 모두 받을 수 있습니다.\n\n• 원본 앱을 수정하지 않습니다\n• 두 공간의 데이터와 로그인은 완전히 분리됩니다\n• 복제한 앱에는 서류가방 배지가 붙습니다</string>
+    <string name="onboarding_create">평행 공간 만들기</string>
+    <string name="provisioning_cancelled">평행 공간 만들기를 취소했습니다</string>
+    <string name="provisioning_unavailable">이 기기에서는 평행 공간을 만드는 화면을 열 수 없습니다</string>
+
+    <!-- 상태 메시지 -->
+    <string name="other_profile_title">다른 업무 프로필이 이미 있습니다</string>
+    <string name="other_profile_body">Android에서는 기기 하나에 업무 프로필을 하나만 만들 수 있습니다. 회사 업무 프로필이나 다른 앱 복제 앱이 만든 공간이 있다면 그 공간을 먼저 삭제하세요.</string>
+    <string name="unsupported_title">지원하지 않는 기기입니다</string>
+    <string name="unsupported_body">이 기기 또는 사용자 계정에서는 업무 프로필을 만들 수 없습니다. 기기의 기본 사용자 계정으로 실행했는지 확인하세요.</string>
+
+    <!-- 앱 목록 -->
+    <string name="section_cloned">평행 공간의 앱</string>
+    <string name="section_available">복제할 앱 선택</string>
+    <string name="no_clones">아직 복제한 앱이 없습니다. 아래 목록에서 복제할 앱을 고르세요.</string>
+    <string name="recommended">추천</string>
+    <string name="action_clone">복제</string>
+    <string name="action_launch">실행</string>
+    <string name="action_remove">제거</string>
+    <string name="launch_failed">앱을 실행하지 못했습니다. 업무 앱이 일시중지되어 있는지 확인하세요.</string>
+    <string name="bridge_failed">평행 공간에 연결하지 못했습니다. 평행우주 앱을 다시 실행하세요.</string>
+    <string name="quiet_mode_warning">업무 앱이 일시중지되어 있습니다. 이 상태에서는 복제한 앱이 실행되지 않고 알림도 오지 않습니다. 빠른 설정에서 \'업무 앱\'을 켜세요.</string>
+    <string name="tip_title">알림을 제대로 받으려면</string>
+    <string name="tip_body">복제한 앱을 처음 실행할 때 알림 권한을 허용하세요. 그다음 설정 → 애플리케이션에서 업무용 앱을 열고 배터리를 \'제한 없음\'으로 설정하세요.</string>
+
+    <!-- 공간 삭제 -->
+    <string name="destroy_space">평행 공간 삭제</string>
+    <string name="destroy_confirm_title">평행 공간을 삭제할까요?</string>
+    <string name="destroy_confirm_body">공간 안의 모든 앱, 로그인 정보, 데이터가 영구 삭제되며 되돌릴 수 없습니다.</string>
+    <string name="delete">삭제</string>
+    <string name="cancel">취소</string>
+
+    <!-- 프로필 내부 -->
+    <string name="inside_title">평행 공간 안에서 실행 중입니다</string>
+    <string name="inside_body">앱 복제와 관리는 개인 공간에 있는 평행우주 앱에서 하세요.</string>
+
+    <!-- 프로필 쪽 작업 결과 -->
+    <string name="clone_success">%1$s 복제를 완료했습니다</string>
+    <string name="clone_failed">%1$s 복제에 실패했습니다</string>
+</resources>

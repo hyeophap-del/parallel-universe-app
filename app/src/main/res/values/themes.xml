@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ParallelUniverse" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.ParallelUniverse.Translucent" parent="android:Theme.Translucent.NoTitleBar" />
+</resources>
