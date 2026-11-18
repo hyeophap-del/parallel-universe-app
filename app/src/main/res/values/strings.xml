@@ -59,6 +59,15 @@
     <string name="rename">이름 변경</string>
     <string name="personal_files_title">파일 첨부할 때 개인 파일 보기</string>
     <string name="personal_files_body">복제한 앱에서 파일을 첨부하면 \'개인\' 탭이 있는 기본 파일 선택 화면이 열립니다. 대신 평행 공간 안의 \'내 파일\' 앱이 숨겨집니다(개인 공간의 \'내 파일\'은 그대로입니다).</string>
+    <string name="sync_title">앱을 열 때 개인 사진·파일 복사</string>
+    <string name="sync_body">켜면 이 앱을 열 때와 \'지금 동기화\'를 누를 때 개인 공간의 최근 7일 사진·동영상(최대 1GB)을 평행 공간에 복사해, 복제한 앱 안의 갤러리·파일 목록에도 보이게 합니다. 오래된 복사본은 자동으로 지워지고, 끄면 복사본을 모두 지웁니다.</string>
+    <string name="sync_now">지금 동기화</string>
+    <string name="sync_done">평행 공간에 %1$d개 복사, %2$d개 정리했습니다</string>
+    <string name="sync_cleared">복사 기능을 껐습니다. 평행 공간의 복사본 %1$d개를 지웠습니다</string>
+    <string name="sync_permission_denied">사진 접근을 허용해야 복사할 수 있습니다</string>
+    <string name="sync_downloads_title">다운로드 폴더도 포함</string>
+    <string name="sync_downloads_body">문서 같은 일반 파일까지 복사하려면 \'모든 파일 접근\'을 허용하세요.</string>
+    <string name="sync_downloads_allow">허용</string>
     <string name="personal_files_on">이제 파일 첨부 화면에서 \'개인\' 탭을 쓸 수 있습니다</string>
     <string name="personal_files_off">평행 공간의 \'내 파일\'을 다시 표시합니다</string>
     <string name="rename_title">공간 이름 변경</string>

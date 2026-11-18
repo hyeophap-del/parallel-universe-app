@@ -1,6 +1,20 @@
 package app.paralleluniverse.ui
 
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.UserHandle
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.Card
+import androidx.compose.runtime.saveable.rememberSaveable
+import app.paralleluniverse.sync.MediaSync
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -78,28 +92,83 @@ fun AppListScreen(
     var busy by remember { mutableStateOf(false) }
     var personalFiles by remember { mutableStateOf(SpaceSettings.personalFiles(context)) }
     val hasSamsungMyFiles = remember { SpaceSettings.hasSamsungMyFiles(context) }
+    var mediaSync by remember { mutableStateOf(SpaceSettings.mediaSync(context)) }
+    var downloadsAllowed by remember { mutableStateOf(MediaSync.canReadDownloads()) }
+    var settingsExpanded by rememberSaveable { mutableStateOf(true) }
 
     LaunchedEffect(profile, refreshKey, localRefresh) {
         snapshot = withContext(Dispatchers.Default) { repository.load(profile) }
     }
 
     /** 평행 공간에 명령을 보내고 결과를 알린다. 성공하면 [onOk]를 실행한다. */
-    fun send(command: BridgeCommand, okMessage: String? = null, onOk: () -> Unit = {}) {
+    fun send(
+        command: BridgeCommand,
+        okMessage: (() -> String?)? = null,
+        payload: ((DataOutputStream, DataInputStream) -> Unit)? = null,
+        onOk: () -> Unit = {},
+    ) {
         if (busy) return
         busy = true
         scope.launch {
-            val outcome = requester.request(command, profile)
+            val outcome = requester.request(command, profile, payload)
             busy = false
             when (outcome) {
                 LocalBridge.Outcome.OK -> {
                     onOk()
-                    okMessage?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+                    okMessage?.invoke()?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
                     localRefresh++
                 }
                 LocalBridge.Outcome.FAILED -> toast(context, R.string.bridge_failed)
                 LocalBridge.Outcome.NO_ANSWER -> toast(context, R.string.bridge_no_answer)
                 LocalBridge.Outcome.UNPAIRED -> toast(context, R.string.bridge_unpaired)
             }
+        }
+    }
+
+    /** 개인 사진·파일 복사. [clearAll]이면 빈 목록을 보내 평행 공간의 복사본을 모두 지운다. */
+    fun runSync(clearAll: Boolean) {
+        if (busy) return
+        scope.launch {
+            val sources = if (clearAll) emptyList() else withContext(Dispatchers.IO) { MediaSync.scan(context) }
+            var result: MediaSync.Result? = null
+            send(
+                BridgeCommand.sync(),
+                okMessage = {
+                    val r = result
+                    when {
+                        clearAll -> context.getString(R.string.sync_cleared, r?.deleted ?: 0)
+                        r == null || (r.saved == 0 && r.deleted == 0) -> null
+                        else -> context.getString(R.string.sync_done, r.saved, r.deleted)
+                    }
+                },
+                payload = { out, input -> result = MediaSync.send(sources, out, input) },
+            ) {
+                SpaceSettings.markSynced(context)
+                if (clearAll) {
+                    SpaceSettings.setMediaSync(context, false)
+                    mediaSync = false
+                }
+            }
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) {
+        if (MediaSync.hasMediaPermission(context)) {
+            SpaceSettings.setMediaSync(context, true)
+            mediaSync = true
+            runSync(clearAll = false)
+        } else {
+            toast(context, R.string.sync_permission_denied)
+        }
+    }
+
+    // 앱을 열 때 자동 동기화(켜져 있고, 최근 2분 안에 하지 않았을 때)
+    LaunchedEffect(paired, refreshKey) {
+        downloadsAllowed = MediaSync.canReadDownloads()
+        if (paired && mediaSync && MediaSync.hasMediaPermission(context) && SpaceSettings.shouldAutoSync(context)) {
+            runSync(clearAll = false)
         }
     }
 
@@ -128,6 +197,93 @@ fun AppListScreen(
             item {
                 Button(onClick = onRecreate, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.recreate_action))
+                }
+            }
+        }
+        // 공간 설정: 목록 맨 위에 고정(접을 수 있음)
+        item {
+            SettingsCard(expanded = settingsExpanded, onToggle = { settingsExpanded = !settingsExpanded }) {
+                SettingRow(
+                    title = stringResource(R.string.space_name_label, spaceName),
+                    action = {
+                        TextButton(enabled = !busy, onClick = { renaming = true }) {
+                            Text(stringResource(R.string.rename))
+                        }
+                    },
+                )
+                if (hasSamsungMyFiles) {
+                    SettingRow(
+                        title = stringResource(R.string.personal_files_title),
+                        body = stringResource(R.string.personal_files_body),
+                        action = {
+                            Switch(
+                                checked = personalFiles,
+                                enabled = !busy && paired,
+                                onCheckedChange = { on ->
+                                    send(
+                                        BridgeCommand.personalFiles(on),
+                                        okMessage = {
+                                            context.getString(
+                                                if (on) R.string.personal_files_on else R.string.personal_files_off,
+                                            )
+                                        },
+                                    ) {
+                                        SpaceSettings.setPersonalFiles(context, on)
+                                        personalFiles = on
+                                    }
+                                },
+                            )
+                        },
+                    )
+                }
+                if (MediaSync.isSupported()) {
+                    SettingRow(
+                        title = stringResource(R.string.sync_title),
+                        body = stringResource(R.string.sync_body),
+                        action = {
+                            Switch(
+                                checked = mediaSync,
+                                enabled = !busy && paired,
+                                onCheckedChange = { on ->
+                                    if (on) {
+                                        permissionLauncher.launch(MediaSync.mediaPermissions())
+                                    } else {
+                                        runSync(clearAll = true)
+                                    }
+                                },
+                            )
+                        },
+                    )
+                    if (mediaSync) {
+                        if (!downloadsAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            SettingRow(
+                                title = stringResource(R.string.sync_downloads_title),
+                                body = stringResource(R.string.sync_downloads_body),
+                                action = {
+                                    TextButton(onClick = {
+                                        context.startActivity(
+                                            Intent(
+                                                Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                                Uri.fromParts("package", context.packageName, null),
+                                            ),
+                                        )
+                                    }) { Text(stringResource(R.string.sync_downloads_allow)) }
+                                },
+                            )
+                        }
+                        Button(
+                            enabled = !busy,
+                            onClick = { runSync(clearAll = false) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(stringResource(R.string.sync_now)) }
+                    }
+                }
+                TextButton(
+                    enabled = !busy,
+                    onClick = { send(BridgeCommand.destroy()) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.destroy_space), color = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -188,63 +344,9 @@ fun AppListScreen(
                     Toast.makeText(context, R.string.clone_in_progress, Toast.LENGTH_LONG).show()
                     send(
                         BridgeCommand.clone(entry.packageName),
-                        okMessage = context.getString(R.string.clone_success, entry.label),
+                        okMessage = { context.getString(R.string.clone_success, entry.label) },
                     )
                 }) { Text(stringResource(R.string.action_clone)) }
-            }
-        }
-
-        item { SectionHeader(stringResource(R.string.section_settings)) }
-        item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.space_name_label, spaceName),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(enabled = !busy, onClick = { renaming = true }) {
-                    Text(stringResource(R.string.rename))
-                }
-            }
-        }
-        if (hasSamsungMyFiles) {
-            item {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.personal_files_title), style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            stringResource(R.string.personal_files_body),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Switch(
-                        checked = personalFiles,
-                        enabled = !busy && paired,
-                        onCheckedChange = { on ->
-                            send(
-                                BridgeCommand.personalFiles(on),
-                                okMessage = context.getString(
-                                    if (on) R.string.personal_files_on else R.string.personal_files_off,
-                                ),
-                            ) {
-                                SpaceSettings.setPersonalFiles(context, on)
-                                personalFiles = on
-                            }
-                        },
-                    )
-                }
-            }
-        }
-        item {
-            TextButton(
-                enabled = !busy,
-                onClick = { send(BridgeCommand.destroy()) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-            ) {
-                Text(stringResource(R.string.destroy_space), color = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -269,13 +371,57 @@ fun AppListScreen(
             confirmLabel = stringResource(R.string.save),
             onConfirm = { name ->
                 renaming = false
-                send(BridgeCommand.rename(name), okMessage = context.getString(R.string.rename_done)) {
+                send(BridgeCommand.rename(name), okMessage = { context.getString(R.string.rename_done) }) {
                     SpaceName.set(context, name)
                     spaceName = name
                 }
             },
             onDismiss = { renaming = false },
         )
+    }
+}
+
+@Composable
+private fun SettingsCard(expanded: Boolean, onToggle: () -> Unit, content: @Composable () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onToggle)
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.section_settings),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                )
+            }
+            if (expanded) content()
+        }
+    }
+}
+
+@Composable
+private fun SettingRow(title: String, body: String? = null, action: @Composable () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (body != null) {
+                Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        action()
     }
 }
 

@@ -15,6 +15,7 @@ import app.paralleluniverse.profile.BridgeKeyStore
 import app.paralleluniverse.profile.LocalBridge
 import app.paralleluniverse.profile.ProfileActions
 import app.paralleluniverse.profile.ProfileSetup
+import app.paralleluniverse.sync.MediaSync
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -53,8 +54,9 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             var destroyRequested = false
             val command = withContext(Dispatchers.IO) {
-                LocalBridge.receive(key) { command, input ->
+                LocalBridge.receive(key) { command, input, out ->
                     when (command.action) {
+                        BridgeCommand.Action.SYNC -> MediaSync.receive(applicationContext, input, out)
                         BridgeCommand.Action.CLONE ->
                             ApkTransfer.receiveAndInstall(this@MainActivity, command.arg, input)
                         BridgeCommand.Action.RENAME -> {

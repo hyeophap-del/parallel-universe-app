@@ -51,7 +51,7 @@ object LocalBridge {
     fun serve(
         key: ByteArray,
         command: BridgeCommand,
-        payload: (DataOutputStream) -> Unit = {},
+        payload: (DataOutputStream, DataInputStream) -> Unit = { _, _ -> },
         wake: () -> Boolean,
     ): Outcome {
         val server = openServer() ?: return Outcome.FAILED
@@ -88,7 +88,7 @@ object LocalBridge {
         socket: Socket,
         key: ByteArray,
         command: BridgeCommand,
-        payload: (DataOutputStream) -> Unit,
+        payload: (DataOutputStream, DataInputStream) -> Unit,
     ): Outcome? {
         val input = DataInputStream(BufferedInputStream(socket.getInputStream()))
         val out = DataOutputStream(BufferedOutputStream(socket.getOutputStream()))
@@ -118,7 +118,7 @@ object LocalBridge {
             val line = BridgeCommand.encode(command)
             out.write(BridgeAuth.serverProof(key, serverNonce, clientNonce, line))
             out.writeUTF(line)
-            payload(out)
+            payload(out, input)
             out.flush()
             socket.soTimeout = REPLY_TIMEOUT_MS
             if (input.readUTF() == BridgeCommand.REPLY_OK) Outcome.OK else Outcome.FAILED
@@ -136,7 +136,7 @@ object LocalBridge {
      * [handle]은 명령별 데이터를 같은 입력 스트림에서 읽는다. 블로킹 함수다.
      * @return 받은 명령. 인증된 서버가 없으면 null
      */
-    fun receive(key: ByteArray, handle: (BridgeCommand, DataInputStream) -> Boolean): BridgeCommand? {
+    fun receive(key: ByteArray, handle: (BridgeCommand, DataInputStream, DataOutputStream) -> Boolean): BridgeCommand? {
         for (port in PORTS) {
             val socket = Socket()
             try {
@@ -162,7 +162,7 @@ object LocalBridge {
 
                 socket.soTimeout = PAYLOAD_TIMEOUT_MS
                 val ok = try {
-                    handle(command, input)
+                    handle(command, input, out)
                 } catch (e: Exception) {
                     Log.w(TAG, "command failed: ${command.action}", e)
                     false

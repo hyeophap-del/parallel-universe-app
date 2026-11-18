@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 프로필 안에서 복제본을 삭제할 때 시스템 삭제 확인 화면을 띄우기 위함 -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
@@ -9,6 +10,18 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- 평행파일: PC가 접속할 Wi-Fi 주소 확인 -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- "앱을 열 때 개인 사진·파일 복사"(기본 꺼짐): 개인 공간의 최근 사진·동영상을 읽는다 -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <!-- 같은 기능에서 다운로드 폴더까지 포함할 때만, 사용자가 설정에서 직접 허용 -->
+    <uses-permission
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
 
     <!-- QUERY_ALL_PACKAGES 대신 런처 앱만 조회 (Play 정책 대응) -->
     <queries>
