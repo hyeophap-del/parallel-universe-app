@@ -33,7 +33,13 @@ class CloneRepository(private val context: Context) {
     private val pm = context.packageManager
 
     fun load(): AppsSnapshot {
-        val apps = pm.getInstalledApplications(PackageManager.MATCH_UNINSTALLED_PACKAGES)
+        val all = pm.getInstalledApplications(PackageManager.MATCH_UNINSTALLED_PACKAGES)
+        android.util.Log.i(
+            "DEBUG-pu7",
+            "all=${all.size} installedHere=${all.count { it.isInstalledHere() }} nonSystem=${all.count { !it.isSystem() }} " +
+                "discord=${all.firstOrNull { it.packageName == DISCORD }?.let { "flags=0x" + Integer.toHexString(it.flags) }}",
+        )
+        val apps = all
             .filter { it.packageName != context.packageName && !it.isSystem() }
 
         val (installed, notInstalled) = apps.partition { it.isInstalledHere() }
