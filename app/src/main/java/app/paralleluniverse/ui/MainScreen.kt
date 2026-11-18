@@ -2,6 +2,7 @@ package app.paralleluniverse.ui
 
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,6 +28,7 @@ import app.paralleluniverse.profile.CloneRepository
 import app.paralleluniverse.profile.ProfileRequester
 import app.paralleluniverse.provisioning.ProvisioningManager
 import app.paralleluniverse.provisioning.SpaceStatus
+import app.paralleluniverse.transfer.TransferActivity
 
 /** 개인 공간 화면: 평행 공간을 만들고, 이미 있으면 앱 목록과 관리 기능을 보여 준다. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,6 +63,9 @@ fun MainScreen() {
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
+                    TextButton(onClick = {
+                        context.startActivity(Intent(context, TransferActivity::class.java))
+                    }) { Text(stringResource(R.string.parallel_files)) }
                     TextButton(onClick = { refreshKey++ }) { Text(stringResource(R.string.refresh)) }
                 },
             )

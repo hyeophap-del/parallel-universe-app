@@ -3,6 +3,7 @@
     <string name="app_name">평행우주</string>
     <string name="profile_name">평행 공간</string>
     <string name="refresh">새로고침</string>
+    <string name="parallel_files">평행파일</string>
 
     <!-- 온보딩 -->
     <string name="onboarding_title">앱을 두 개로 실행하세요</string>
