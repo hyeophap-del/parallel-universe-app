@@ -3,7 +3,6 @@ name: Release
 on:
   push:
     tags: ["v*"]
-    branches: [ci/e2e] # TEMP dry run
   # 시험 실행: 서명된 APK를 빌드·검증해 아티팩트로만 올린다(릴리스는 만들지 않는다).
   workflow_dispatch:
     inputs:
@@ -59,10 +58,11 @@ jobs:
 
       - name: Verify signature
         run: |
-          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
+          # 러너의 최신 build-tools apksigner는 JDK 17에서 출력 없이 실패할 수 있어, AGP가 쓰는 34.0.0으로 고정한다.
+          apksigner="$ANDROID_HOME/build-tools/34.0.0/apksigner"
           apk=app/build/outputs/apk/release/app-release.apk
-          certs=$("$apksigner" verify --print-certs "$apk")
-          printf '%s\n' "$certs" | grep -E 'Signer #1 certificate (DN|SHA-256)'
+          certs=$("$apksigner" verify --print-certs "$apk" 2>&1) || { printf '%s\n' "$certs"; echo "::error::apksigner failed"; exit 1; }
+          printf '%s\n' "$certs" | grep -E 'Signer #1 certificate (DN|SHA-256)' || true
           printf '%s\n' "$certs" | grep -q 'CN=Parallel Universe' || { echo "::error::APK is not signed with the release key"; exit 1; }
           cp "$apk" "parallel-universe-${TAG}.apk"
 
