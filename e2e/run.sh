@@ -128,6 +128,24 @@ prepare_device() {
     adb logcat -c || true
 }
 
+# LocalBridge 인증 키(HMAC)를 두 사용자 공간에 같은 값으로 넣는다.
+# 실제로는 프로비저닝 때 EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE로 전달되지만, 여기서는 마법사를 거치지 않으므로
+# 디버그 빌드의 run-as로 SharedPreferences(shared_prefs/bridge.xml)를 직접 쓴다.
+pair_bridge() {
+    key=$(head -c 32 /dev/urandom | base64 | tr -d '\n')
+    xml="<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\" ?><map><string name=\"key\">$key</string></map>"
+    for user in 0 "$PROFILE"; do
+        printf '%s\n' "$xml" |
+            adb shell "run-as $APP --user $user sh -c 'mkdir -p shared_prefs && cat > shared_prefs/bridge.xml'"
+        got=$(sh_ run-as "$APP" --user "$user" cat shared_prefs/bridge.xml)
+        case $got in
+            *"$key"*) log "bridge key written for user $user" ;;
+            *) fail "could not write bridge key for user $user: $got" ;;
+        esac
+        sh_ am force-stop --user "$user" "$APP"
+    done
+}
+
 create_profile() {
     log "installing $APP_APK"
     adb install -r -t "$APP_APK"
@@ -150,6 +168,10 @@ create_profile() {
 
     sh_ am start-user -w "$PROFILE"
     wait_for "profile user $PROFILE unlocked" 120 user_unlocked "$PROFILE"
+    # 프로비저닝 마법사(ManagedProvisioning)는 프로필의 설정 완료 표시를 켠다. pm create-user는 켜지 않으므로
+    # 그대로 두면 프로필 안 Activity(설치 확인 창 포함)가 뜨자마자 홈 화면에 가려진다.
+    sh_ settings put --user "$PROFILE" secure user_setup_complete 1
+    pair_bridge
 
     # 실제 프로비저닝에서는 마법사가 끝난 뒤 DPC(PolicyComplianceActivity)가 ProfileSetup.complete를 실행한다.
     # 그 Activity는 BIND_DEVICE_ADMIN으로 보호되어 셸에서 못 여니, 같은 일을 하는 프로필 쪽 MainActivity를 한 번 연다.
