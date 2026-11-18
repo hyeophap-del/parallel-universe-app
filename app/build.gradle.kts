@@ -16,6 +16,17 @@ android {
         versionName = "0.1.0"
     }
 
+    // 디버그 전용 고정 키(비밀 아님). CI와 로컬 빌드의 서명이 같아야 휴대폰에 업데이트 설치가 된다.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storeType = "pkcs12"
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
