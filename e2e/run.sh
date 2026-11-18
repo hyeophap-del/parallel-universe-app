@@ -23,6 +23,7 @@ ADMIN=$APP/.admin.CloneAdminReceiver
 FIXTURE=app.paralleluniverse.e2e.fixture
 FIXTURE_LABEL="E2E Fixture"
 CLONE_TEXT="복제"
+CLONE_TAB_TEXT="복제하기"
 
 mkdir -p "$OUT"
 STEP=0
@@ -204,8 +205,15 @@ tap_clone_button() {
     w=$1 h=$2
     deadline=$(($(date +%s) + 180))
     swipes=0
+    on_clone_tab=0
     while [ "$(date +%s)" -lt "$deadline" ]; do
         if dump_ui; then
+            # 하단 탭 UI: 복제 후보 목록은 "복제하기" 탭에 있다. 한 번 눌러 이동한다.
+            if [ "$on_clone_tab" = 0 ] && has_text "$CLONE_TAB_TEXT"; then
+                tap_text "$CLONE_TAB_TEXT" && on_clone_tab=1
+                sleep 1
+                continue
+            fi
             label=$(nodes_with_text "$FIXTURE_LABEL" | head -n 1 | bounds)
             if [ -n "$label" ]; then
                 set -- $label
