@@ -1,10 +1,12 @@
 package app.paralleluniverse.profile
 
+import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import android.content.pm.ApplicationInfo
-import android.content.pm.PackageManager
+import android.content.pm.LauncherActivityInfo
+import android.content.pm.LauncherApps
 import android.os.Process
+import android.os.UserHandle
+import android.util.Log
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
@@ -13,62 +15,68 @@ data class AppEntry(
     val packageName: String,
     val label: String,
     val icon: ImageBitmap,
+    val component: ComponentName,
+    val user: UserHandle,
 )
 
 data class AppsSnapshot(
-    /** 기기에 설치되어 있지만 평행 공간에는 없는 앱(복제 후보). */
-    val candidates: List<AppEntry>,
-    /** 평행 공간에 설치된 앱. */
+    /** 개인 공간에 설치된 앱(복제 후보). */
+    val personal: List<AppEntry>,
+    /** 평행 공간 안의 앱. */
     val cloned: List<AppEntry>,
 )
 
 /**
- * 평행 공간(프로필) 안에서 실행된다. 개인 공간과 통신하지 않고 모든 정보를 직접 얻는다.
- *
- * MATCH_UNINSTALLED_PACKAGES를 쓰면 이 사용자 공간에는 없고 다른 공간(개인 공간)에만 설치된
- * 앱도 조회된다. 이 앱들은 installExistingPackage로 바로 복제할 수 있다.
+ * 개인 공간에서 두 공간의 앱 목록을 조회하고 복제본을 실행한다.
+ * LauncherApps는 같은 프로필 그룹의 앱을 조회·실행할 수 있어 별도 통신이 필요 없다.
  */
 class CloneRepository(private val context: Context) {
 
-    private val pm = context.packageManager
+    private val launcherApps = context.getSystemService(LauncherApps::class.java)
 
-    fun load(): AppsSnapshot {
-        val all = pm.getInstalledApplications(PackageManager.MATCH_UNINSTALLED_PACKAGES)
-        android.util.Log.i(
-            "DEBUG-pu7",
-            "all=${all.size} installedHere=${all.count { it.isInstalledHere() }} nonSystem=${all.count { !it.isSystem() }} " +
-                "discord=${all.firstOrNull { it.packageName == DISCORD }?.let { "flags=0x" + Integer.toHexString(it.flags) }}",
-        )
-        val apps = all
-            .filter { it.packageName != context.packageName && !it.isSystem() }
-
-        val (installed, notInstalled) = apps.partition { it.isInstalledHere() }
-        return AppsSnapshot(
-            candidates = notInstalled.map { entry(it, badged = false) }
-                .sortedWith(compareBy({ it.packageName != DISCORD }, { it.label.lowercase() })),
-            cloned = installed.map { entry(it, badged = true) }
-                .sortedBy { it.label.lowercase() },
-        )
+    fun load(profile: UserHandle?): AppsSnapshot {
+        val personal = entries(Process.myUserHandle())
+            .sortedWith(compareBy({ it.packageName != DISCORD }, { it.label.lowercase() }))
+        val cloned = profile?.let { entries(it) }.orEmpty()
+            .sortedBy { it.label.lowercase() }
+        return AppsSnapshot(personal, cloned)
     }
 
-    fun launchIntent(packageName: String): Intent? =
-        pm.getLaunchIntentForPackage(packageName)?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-    private fun entry(info: ApplicationInfo, badged: Boolean): AppEntry {
-        val raw = pm.getApplicationIcon(info)
-        val icon = if (badged) pm.getUserBadgedIcon(raw, Process.myUserHandle()) else raw
-        return AppEntry(
-            packageName = info.packageName,
-            label = pm.getApplicationLabel(info).toString(),
-            icon = icon.toBitmap(ICON_PX, ICON_PX).asImageBitmap(),
-        )
+    fun launch(entry: AppEntry): Boolean = try {
+        launcherApps.startMainActivity(entry.component, entry.user, null, null)
+        true
+    } catch (e: SecurityException) {
+        Log.w(TAG, "launch failed: ${entry.packageName}", e)
+        false
+    } catch (e: IllegalStateException) {
+        Log.w(TAG, "launch failed: ${entry.packageName}", e)
+        false
     }
 
-    private fun ApplicationInfo.isSystem() = (flags and ApplicationInfo.FLAG_SYSTEM) != 0
-    private fun ApplicationInfo.isInstalledHere() = (flags and ApplicationInfo.FLAG_INSTALLED) != 0
+    private fun entries(user: UserHandle): List<AppEntry> {
+        val activities: List<LauncherActivityInfo> = try {
+            launcherApps.getActivityList(null, user)
+        } catch (e: SecurityException) {
+            Log.w(TAG, "cannot list apps for $user", e)
+            emptyList()
+        }
+        return activities
+            .filter { it.applicationInfo.packageName != context.packageName }
+            .distinctBy { it.applicationInfo.packageName }
+            .map { info ->
+                AppEntry(
+                    packageName = info.applicationInfo.packageName,
+                    label = info.label.toString(),
+                    icon = info.getBadgedIcon(0).toBitmap(ICON_PX, ICON_PX).asImageBitmap(),
+                    component = info.componentName,
+                    user = info.user,
+                )
+            }
+    }
 
     companion object {
         const val DISCORD = "com.discord"
+        private const val TAG = "CloneRepository"
         private const val ICON_PX = 144
     }
 }

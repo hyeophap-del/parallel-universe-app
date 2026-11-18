@@ -12,3 +12,4 @@
 *.jks
 !/app/debug.keystore
 /dist/
+/.claude/

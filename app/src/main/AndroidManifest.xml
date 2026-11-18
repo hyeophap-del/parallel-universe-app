@@ -3,10 +3,10 @@
 
     <!-- 프로필 안에서 복제본을 삭제할 때 시스템 삭제 확인 화면을 띄우기 위함 -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- 앱 복제: 개인 공간 앱의 APK를 평행 공간에 설치 (시스템 설치 확인 창을 거친다) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 개인 공간 앱 ↔ 평행 공간 앱 사이의 기기 내부 통로(127.0.0.1, LocalBridge) -->
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- 개인 공간 ↔ 평행 공간의 이 앱끼리 화면을 주고받기 위한 "연결된 개인 및 업무 앱" 권한 (Android 11+) -->
-    <uses-permission android:name="android.permission.INTERACT_ACROSS_PROFILES" />
 
     <!-- QUERY_ALL_PACKAGES 대신 런처 앱만 조회 (Play 정책 대응) -->
     <queries>
@@ -14,7 +14,6 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
-        <package android:name="com.discord" />
     </queries>
 
     <application
@@ -24,17 +23,17 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ParallelUniverse">
 
+        <!--
+            투명 테마: 평행 공간 안에서는 화면 없이 명령만 처리하고 닫히므로 깜빡임을 없앤다.
+            개인 공간에서는 Compose Scaffold가 배경을 그린다.
+        -->
         <activity
             android:name=".ui.MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/Theme.ParallelUniverse.Translucent">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <!-- [DEBUG-pu7] probe (a) target -->
-            <intent-filter>
-                <action android:name="app.paralleluniverse.action.PICK_APP" />
-                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 

@@ -4,12 +4,12 @@ import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
+import android.os.UserManager
 import android.util.Log
 import app.paralleluniverse.admin.CloneAdminReceiver
 
 /**
- * 프로필 안에서 실행하는 설정. 프로필 생성 직후와 관리 화면을 열 때마다 실행된다.
+ * 프로필 안에서 실행하는 설정. 프로필 생성 직후와, 평행 공간 앱이 깨어날 때마다 실행된다.
  * 여러 번 호출해도 안전하다.
  */
 object ProfileSetup {
@@ -24,12 +24,16 @@ object ProfileSetup {
 
         dpm.setProfileName(admin, SpaceName.get(context))
 
-        // 파일·사진 공유 통로. 일부 기기(예: One UI 8.5)는 이 필터를 받아들이고도 적용하지 않으므로,
-        // 핵심 기능(복제·실행·관리)은 이 필터에 의존하지 않는다.
+        // 파일·사진 공유 통로. 일부 기기(예: Galaxy · Android 16)는 이 필터를 받아들이고도 적용하지 않으므로,
+        // 핵심 기능(복제·실행·관리)은 이 필터에 의존하지 않는다(LocalBridge 참고).
         dpm.clearCrossProfileIntentFilters(admin)
         for ((filter, direction) in crossProfileFilters()) {
             dpm.addCrossProfileIntentFilter(admin, filter, direction)
         }
+
+        // 업무 프로필은 기본으로 "알 수 없는 출처 설치 금지"가 걸려 있다. 앱 복제(APK 설치)를 위해 푼다.
+        // 설치할 때마다 시스템 확인 창은 여전히 뜬다.
+        dpm.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES)
 
         // 복제한 앱이 프로필 안에서 업데이트를 받을 수 있도록 Play 스토어를 켠다(있을 때만).
         try {
@@ -39,66 +43,6 @@ object ProfileSetup {
         }
 
         dpm.setProfileEnabled(admin)
-
-        // [DEBUG-pu7] probe (a): custom managed->parent filter
-        try {
-            dpm.addCrossProfileIntentFilter(
-                admin,
-                IntentFilter("app.paralleluniverse.action.PICK_APP").apply { addCategory(Intent.CATEGORY_DEFAULT) },
-                DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT,
-            )
-        } catch (e: Exception) {
-            Log.e("DEBUG-pu7", "probe a add failed", e)
-        }
-        val probeA = context.packageManager.queryIntentActivities(
-            Intent("app.paralleluniverse.action.PICK_APP"), PackageManager.MATCH_DEFAULT_ONLY,
-        )
-        Log.i("DEBUG-pu7", "probe a PICK_APP -> ${probeA.map { it.activityInfo.name }}")
-
-        // [DEBUG-pu7] probe (d): connect to the personal-space localhost server
-        Thread {
-            Thread.sleep(1500)
-            try {
-                java.net.Socket("127.0.0.1", 47621).use { s ->
-                    val line = s.getInputStream().bufferedReader().readLine()
-                    Log.i("DEBUG-pu7", "probe d client read: $line")
-                }
-            } catch (e: Exception) {
-                Log.e("DEBUG-pu7", "probe d client failed: $e")
-            }
-        }.start()
-
-        // [DEBUG-pu7] probe (c): LauncherApps from inside the profile
-        try {
-            val la = context.getSystemService(android.content.pm.LauncherApps::class.java)
-            val cpa = context.getSystemService(android.content.pm.CrossProfileApps::class.java)
-            val profiles = la.profiles
-            Log.i("DEBUG-pu7", "probe c la.profiles=$profiles cpa.targets=${cpa.targetUserProfiles}")
-            for (user in profiles + cpa.targetUserProfiles) {
-                val list = try {
-                    la.getActivityList(null, user).map { it.applicationInfo.packageName }
-                } catch (e: Exception) {
-                    listOf("ERR ${e.javaClass.simpleName}: ${e.message}")
-                }
-                Log.i("DEBUG-pu7", "probe c user=$user count=${list.size} discord=${"com.discord" in list} sample=${list.take(5)}")
-            }
-        } catch (e: Exception) {
-            Log.e("DEBUG-pu7", "probe c failed", e)
-        }
-
-        // [DEBUG-pu7] probe (b): connected apps (INTERACT_ACROSS_PROFILES)
-        if (android.os.Build.VERSION.SDK_INT >= 30) {
-            try {
-                dpm.setCrossProfilePackages(admin, setOf(context.packageName))
-                val cpa = context.getSystemService(android.content.pm.CrossProfileApps::class.java)
-                Log.i(
-                    "DEBUG-pu7",
-                    "probe b canRequest=${cpa.canRequestInteractAcrossProfiles()} canInteract=${cpa.canInteractAcrossProfiles()}",
-                )
-            } catch (e: Exception) {
-                Log.e("DEBUG-pu7", "probe b failed", e)
-            }
-        }
     }
 
     fun rename(context: Context, name: String) {
