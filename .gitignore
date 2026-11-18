@@ -11,3 +11,4 @@
 *.keystore
 *.jks
 !/app/debug.keystore
+/dist/

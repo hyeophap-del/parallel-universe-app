@@ -26,7 +26,28 @@
     <string name="action_launch">실행</string>
     <string name="action_remove">제거</string>
     <string name="launch_failed">앱을 실행하지 못했습니다. 업무 앱이 일시중지되어 있는지 확인하세요.</string>
-    <string name="bridge_failed">평행 공간에 연결하지 못했습니다. 평행우주 앱을 다시 실행하세요.</string>
+    <string name="bridge_failed">평행 공간에 연결하지 못했습니다. 빠른 설정에서 업무 앱이 켜져 있는지 확인하세요.</string>
+    <string name="repairing">평행 공간 연결을 복구하고 있습니다…</string>
+    <string name="repair_done">평행 공간 설정을 적용했습니다</string>
+    <string name="more">더보기</string>
+
+    <!-- 바로가기 -->
+    <string name="add_shortcut">홈 화면에 바로가기 추가</string>
+    <string name="shortcut_dialog_title">바로가기 이름</string>
+    <string name="add">추가</string>
+    <string name="shortcut_unsupported">이 홈 화면 앱은 바로가기 추가를 지원하지 않습니다</string>
+    <string name="shortcut_launch_failed">복제한 앱을 찾지 못했습니다. 평행우주 앱에서 다시 복제하세요.</string>
+
+    <!-- 공유 안내 -->
+    <string name="share_tip_title">사진·파일 보내기</string>
+    <string name="share_tip_body">갤러리 같은 개인 앱에서 \'공유하기\'를 누른 뒤 업무 탭에서 복제한 앱을 고르세요. 복제한 앱에서 파일 선택 화면을 열면 개인 탭에서 개인 파일을 고를 수 있습니다. 앱 자체 갤러리에는 평행 공간의 사진만 보입니다.</string>
+
+    <!-- 공간 설정 -->
+    <string name="section_settings">공간 설정</string>
+    <string name="space_name_label">공간 이름: %1$s</string>
+    <string name="rename">이름 변경</string>
+    <string name="rename_title">공간 이름 변경</string>
+    <string name="save">저장</string>
     <string name="quiet_mode_warning">업무 앱이 일시중지되어 있습니다. 이 상태에서는 복제한 앱이 실행되지 않고 알림도 오지 않습니다. 빠른 설정에서 \'업무 앱\'을 켜세요.</string>
     <string name="tip_title">알림을 제대로 받으려면</string>
     <string name="tip_body">복제한 앱을 처음 실행할 때 알림 권한을 허용하세요. 그다음 설정 → 애플리케이션에서 업무용 앱을 열고 배터리를 \'제한 없음\'으로 설정하세요.</string>
@@ -37,10 +58,6 @@
     <string name="destroy_confirm_body">공간 안의 모든 앱, 로그인 정보, 데이터가 영구 삭제되며 되돌릴 수 없습니다.</string>
     <string name="delete">삭제</string>
     <string name="cancel">취소</string>
-
-    <!-- 프로필 내부 -->
-    <string name="inside_title">평행 공간 안에서 실행 중입니다</string>
-    <string name="inside_body">앱 복제와 관리는 개인 공간에 있는 평행우주 앱에서 하세요.</string>
 
     <!-- 프로필 쪽 작업 결과 -->
     <string name="clone_success">%1$s 복제를 완료했습니다</string>

@@ -31,6 +31,7 @@ class ProfileActionActivity : ComponentActivity() {
             ProfileBridge.ACTION_CLONE -> if (target != null) clone(target) else finish()
             ProfileBridge.ACTION_UNINSTALL -> if (target != null) uninstall(target) else finish()
             ProfileBridge.ACTION_DESTROY -> confirmDestroy()
+            ProfileBridge.ACTION_RENAME -> rename(intent.getStringExtra(ProfileBridge.EXTRA_NAME))
             else -> finish()
         }
     }
@@ -47,6 +48,12 @@ class ProfileActionActivity : ComponentActivity() {
 
     private fun uninstall(target: String) {
         startActivity(ProfileActions.uninstallIntent(target))
+        finish()
+    }
+
+    private fun rename(name: String?) {
+        val trimmed = name?.trim()
+        if (!trimmed.isNullOrEmpty()) ProfileSetup.rename(applicationContext, trimmed)
         finish()
     }
 

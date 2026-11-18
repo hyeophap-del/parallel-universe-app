@@ -44,9 +44,19 @@
                 <action android:name="app.paralleluniverse.action.CLONE" />
                 <action android:name="app.paralleluniverse.action.UNINSTALL" />
                 <action android:name="app.paralleluniverse.action.DESTROY" />
+                <action android:name="app.paralleluniverse.action.RENAME" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- 홈 화면 바로가기가 실행하는 투명 Activity: 평행 공간의 앱을 열고 바로 닫힌다. -->
+        <activity
+            android:name=".shortcut.ShortcutLaunchActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.ParallelUniverse.Translucent" />
 
         <!-- Android 12+ 프로비저닝 필수 Activity -->
         <activity

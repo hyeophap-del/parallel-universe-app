@@ -3,30 +3,32 @@ package app.paralleluniverse.profile
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.util.Log
-import app.paralleluniverse.R
 import app.paralleluniverse.admin.CloneAdminReceiver
 
-/** 프로필 생성 직후 프로필 안에서 한 번 실행하는 초기 설정. 여러 번 호출해도 안전하다. */
+/**
+ * 프로필 안에서 실행하는 설정. 프로필을 만든 직후에 실행되고, 개인 공간과의 연결이 끊겼을 때
+ * 복구용으로 다시 실행된다. 여러 번 호출해도 안전하다.
+ */
 object ProfileSetup {
     private const val TAG = "ProfileSetup"
     private const val PLAY_STORE = "com.android.vending"
+    private const val ACTION_PICK_IMAGES = "android.provider.action.PICK_IMAGES"
 
     fun complete(context: Context) {
         val dpm = context.getSystemService(DevicePolicyManager::class.java)
         if (!dpm.isProfileOwnerApp(context.packageName)) return
         val admin = CloneAdminReceiver.component(context)
 
-        dpm.setProfileName(admin, context.getString(R.string.profile_name))
+        dpm.setProfileName(admin, SpaceName.get(context))
 
-        // 개인 공간 → 프로필 방향으로 우리 요청 인텐트만 열어 둔다.
         dpm.clearCrossProfileIntentFilters(admin)
-        dpm.addCrossProfileIntentFilter(
-            admin,
-            ProfileBridge.intentFilter(),
-            DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED,
-        )
+        for ((filter, direction) in crossProfileFilters()) {
+            dpm.addCrossProfileIntentFilter(admin, filter, direction)
+        }
 
         // 요청을 처리하는 Activity는 프로필 쪽에서만 켠다.
         context.packageManager.setComponentEnabledSetting(
@@ -43,5 +45,36 @@ object ProfileSetup {
         }
 
         dpm.setProfileEnabled(admin)
+    }
+
+    fun rename(context: Context, name: String) {
+        SpaceName.set(context, name)
+        val dpm = context.getSystemService(DevicePolicyManager::class.java)
+        dpm.setProfileName(CloneAdminReceiver.component(context), name)
+    }
+
+    private fun crossProfileFilters(): List<Pair<IntentFilter, Int>> {
+        val toProfile = DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED
+        val toPersonal = DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT
+        return buildList {
+            // 개인 공간 앱 → 평행 공간 앱 요청 통로
+            add(ProfileBridge.intentFilter() to toProfile)
+
+            // 개인 앱의 "공유하기"에서 평행 공간 앱(업무 탭)을 고를 수 있게 한다.
+            add(typedFilter(Intent.ACTION_SEND) to toProfile)
+            add(typedFilter(Intent.ACTION_SEND_MULTIPLE) to toProfile)
+
+            // 평행 공간 앱의 파일·사진 선택 화면에서 개인 공간 파일에 접근할 수 있게 한다.
+            add(typedFilter(Intent.ACTION_GET_CONTENT, Intent.CATEGORY_OPENABLE) to toPersonal)
+            add(typedFilter(Intent.ACTION_OPEN_DOCUMENT, Intent.CATEGORY_OPENABLE) to toPersonal)
+            add(typedFilter(ACTION_PICK_IMAGES) to toPersonal)
+            add(IntentFilter(ACTION_PICK_IMAGES).apply { addCategory(Intent.CATEGORY_DEFAULT) } to toPersonal)
+        }
+    }
+
+    private fun typedFilter(action: String, vararg categories: String) = IntentFilter(action).apply {
+        addCategory(Intent.CATEGORY_DEFAULT)
+        categories.forEach(::addCategory)
+        addDataType("*/*")
     }
 }

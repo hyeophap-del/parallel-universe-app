@@ -24,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.paralleluniverse.R
 import app.paralleluniverse.profile.CloneRepository
+import app.paralleluniverse.profile.ProfileRequester
 import app.paralleluniverse.provisioning.ProvisioningManager
 import app.paralleluniverse.provisioning.SpaceStatus
 
@@ -33,11 +34,13 @@ fun MainScreen() {
     val context = LocalContext.current
     val provisioning = remember { ProvisioningManager(context) }
     val repository = remember { CloneRepository(context) }
+    val requester = remember { ProfileRequester(context) }
 
-    // 화면으로 돌아올 때마다(프로필 생성 마법사, 복제 요청 처리 후 등) 상태를 다시 읽는다.
+    // 화면으로 돌아올 때마다(프로필 생성 마법사, 복제 요청 처리, 연결 복구 후 등) 상태를 다시 읽는다.
     var refreshKey by remember { mutableIntStateOf(0) }
     LifecycleResumeEffect(Unit) {
         refreshKey++
+        requester.retryPending()?.let { showRequestResult(context, it) }
         onPauseOrDispose { }
     }
 
@@ -89,12 +92,14 @@ fun MainScreen() {
                     AppListScreen(
                         profile = profile,
                         repository = repository,
+                        requester = requester,
                         isPaused = remember(refreshKey) { provisioning.isPaused(profile) },
                         refreshKey = refreshKey,
                     )
                 }
 
-                SpaceStatus.INSIDE_PROFILE -> InsideProfileScreen()
+                // 프로필 안에서는 MainActivity가 화면을 그리기 전에 닫히므로 여기에 오지 않는다.
+                SpaceStatus.INSIDE_PROFILE -> Unit
 
                 SpaceStatus.OTHER_PROFILE_EXISTS -> MessageScreen(
                     title = stringResource(R.string.other_profile_title),
