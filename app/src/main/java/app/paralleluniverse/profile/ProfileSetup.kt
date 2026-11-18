@@ -55,6 +55,24 @@ object ProfileSetup {
         )
         Log.i("DEBUG-pu7", "probe a PICK_APP -> ${probeA.map { it.activityInfo.name }}")
 
+        // [DEBUG-pu7] probe (c): LauncherApps from inside the profile
+        try {
+            val la = context.getSystemService(android.content.pm.LauncherApps::class.java)
+            val cpa = context.getSystemService(android.content.pm.CrossProfileApps::class.java)
+            val profiles = la.profiles
+            Log.i("DEBUG-pu7", "probe c la.profiles=$profiles cpa.targets=${cpa.targetUserProfiles}")
+            for (user in profiles + cpa.targetUserProfiles) {
+                val list = try {
+                    la.getActivityList(null, user).map { it.applicationInfo.packageName }
+                } catch (e: Exception) {
+                    listOf("ERR ${e.javaClass.simpleName}: ${e.message}")
+                }
+                Log.i("DEBUG-pu7", "probe c user=$user count=${list.size} discord=${"com.discord" in list} sample=${list.take(5)}")
+            }
+        } catch (e: Exception) {
+            Log.e("DEBUG-pu7", "probe c failed", e)
+        }
+
         // [DEBUG-pu7] probe (b): connected apps (INTERACT_ACROSS_PROFILES)
         if (android.os.Build.VERSION.SDK_INT >= 30) {
             try {
