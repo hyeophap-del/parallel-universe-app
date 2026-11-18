@@ -41,6 +41,20 @@ class ProvisioningManager(private val context: Context) {
      * @return 열었으면 true. 업무 앱이 일시중지된 경우 등에는 false
      */
     fun openSpace(profile: UserHandle): Boolean = try {
+        // [DEBUG-pu7] probe (d): localhost TCP server in the personal space
+        Thread {
+            try {
+                java.net.ServerSocket(47621, 1, java.net.InetAddress.getByName("127.0.0.1")).use { server ->
+                    server.soTimeout = 20_000
+                    server.accept().use { s ->
+                        s.getOutputStream().write("PU-HELLO from user0\n".toByteArray())
+                        Log.i("DEBUG-pu7", "probe d server: client connected")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("DEBUG-pu7", "probe d server failed", e)
+            }
+        }.start()
         crossProfileApps.startMainActivity(ComponentName(context, MainActivity::class.java), profile)
         true
     } catch (e: SecurityException) {

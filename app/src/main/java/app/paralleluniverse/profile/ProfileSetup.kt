@@ -55,6 +55,19 @@ object ProfileSetup {
         )
         Log.i("DEBUG-pu7", "probe a PICK_APP -> ${probeA.map { it.activityInfo.name }}")
 
+        // [DEBUG-pu7] probe (d): connect to the personal-space localhost server
+        Thread {
+            Thread.sleep(1500)
+            try {
+                java.net.Socket("127.0.0.1", 47621).use { s ->
+                    val line = s.getInputStream().bufferedReader().readLine()
+                    Log.i("DEBUG-pu7", "probe d client read: $line")
+                }
+            } catch (e: Exception) {
+                Log.e("DEBUG-pu7", "probe d client failed: $e")
+            }
+        }.start()
+
         // [DEBUG-pu7] probe (c): LauncherApps from inside the profile
         try {
             val la = context.getSystemService(android.content.pm.LauncherApps::class.java)
