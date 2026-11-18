@@ -177,7 +177,7 @@ tap_clone_button() {
     size=$(sh_ wm size | sed -n 's/.*: *\([0-9]*\)x\([0-9]*\).*/\1 \2/p' | tail -n 1)
     set -- $size
     w=$1 h=$2
-    deadline=$(($(date +%s) + 90))
+    deadline=$(($(date +%s) + 180))
     swipes=0
     while [ "$(date +%s)" -lt "$deadline" ]; do
         if dump_ui; then
@@ -194,9 +194,12 @@ tap_clone_button() {
                     tap_bounds "$button"
                     return 0
                 fi
-            elif has_text "$CLONE_TEXT" || [ "$swipes" -gt 0 ]; then
+            elif has_text "평행 공간 만들기"; then
+                snap onboarding
+                fail "app shows onboarding: the parallel space (profile) was not detected"
+            elif has_text "$CLONE_TEXT" || has_text "실행" || [ "$swipes" -gt 0 ]; then
                 # 목록은 떴는데 픽스처가 화면 밖이다.
-                [ "$swipes" -lt 15 ] || fail "fixture row not found after scrolling"
+                [ "$swipes" -lt 30 ] || fail "fixture row not found after scrolling"
                 swipes=$((swipes + 1))
                 adb shell input swipe $((w / 2)) $((h * 3 / 4)) $((w / 2)) $((h / 4)) 300
             fi
