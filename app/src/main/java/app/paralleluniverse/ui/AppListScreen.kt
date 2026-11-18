@@ -5,40 +5,45 @@ import android.net.Uri
 import android.os.Build
 import android.os.UserHandle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.Card
-import androidx.compose.runtime.saveable.rememberSaveable
-import app.paralleluniverse.sync.MediaSync
-import java.io.DataInputStream
-import java.io.DataOutputStream
-import android.widget.Toast
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,11 +54,15 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.paralleluniverse.R
@@ -67,11 +76,20 @@ import app.paralleluniverse.profile.ProfileRequester
 import app.paralleluniverse.profile.SpaceName
 import app.paralleluniverse.profile.SpaceSettings
 import app.paralleluniverse.shortcut.CloneShortcuts
+import app.paralleluniverse.sync.MediaSync
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 개인 공간의 관리 화면. 목록·실행은 직접, 복제 등 평행 공간 안의 작업은 LocalBridge로 요청한다. */
+/** 하단 탭 */
+enum class HomeTab { MY_APPS, CLONE, SETTINGS }
+
+/**
+ * 개인 공간의 관리 화면(평행 공간이 있을 때). 탭마다 다른 내용을 보여 주지만 상태와 동작은 한곳에서 관리한다.
+ * 목록·실행은 직접, 복제 등 평행 공간 안의 작업은 LocalBridge로 요청한다.
+ */
 @Composable
 fun AppListScreen(
     profile: UserHandle,
@@ -79,6 +97,8 @@ fun AppListScreen(
     requester: ProfileRequester,
     isPaused: Boolean,
     refreshKey: Int,
+    tab: HomeTab,
+    onTabChange: (HomeTab) -> Unit,
     onRecreate: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -94,7 +114,7 @@ fun AppListScreen(
     val hasSamsungMyFiles = remember { SpaceSettings.hasSamsungMyFiles(context) }
     var mediaSync by remember { mutableStateOf(SpaceSettings.mediaSync(context)) }
     var downloadsAllowed by remember { mutableStateOf(MediaSync.canReadDownloads()) }
-    var settingsExpanded by rememberSaveable { mutableStateOf(true) }
+    var query by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(profile, refreshKey, localRefresh) {
         snapshot = withContext(Dispatchers.Default) { repository.load(profile) }
@@ -178,182 +198,157 @@ fun AppListScreen(
         return
     }
 
-    val clonedPackages = current.cloned.mapTo(HashSet()) { it.packageName }
-    val candidates = current.personal.filterNot { it.packageName in clonedPackages }
+    Column(Modifier.fillMaxSize()) {
+        // 평행 공간과 통신 중일 때(복제·동기화 등) 상단에 진행 표시
+        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth()) else Spacer(Modifier.height(4.dp))
 
-    LazyColumn(
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        if (!paired) {
-            item {
-                NoticeCard(
-                    title = stringResource(R.string.recreate_title),
-                    body = stringResource(R.string.recreate_body),
-                    container = MaterialTheme.colorScheme.errorContainer,
-                    content = MaterialTheme.colorScheme.onErrorContainer,
-                )
-            }
-            item {
-                Button(onClick = onRecreate, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.recreate_action))
-                }
-            }
-        }
-        // 공간 설정: 목록 맨 위에 고정(접을 수 있음)
-        item {
-            SettingsCard(expanded = settingsExpanded, onToggle = { settingsExpanded = !settingsExpanded }) {
-                SettingRow(
-                    title = stringResource(R.string.space_name_label, spaceName),
-                    action = {
-                        TextButton(enabled = !busy, onClick = { renaming = true }) {
-                            Text(stringResource(R.string.rename))
-                        }
-                    },
-                )
-                if (hasSamsungMyFiles) {
-                    SettingRow(
-                        title = stringResource(R.string.personal_files_title),
-                        body = stringResource(R.string.personal_files_body),
-                        action = {
-                            Switch(
-                                checked = personalFiles,
-                                enabled = !busy && paired,
-                                onCheckedChange = { on ->
-                                    send(
-                                        BridgeCommand.personalFiles(on),
-                                        okMessage = {
-                                            context.getString(
-                                                if (on) R.string.personal_files_on else R.string.personal_files_off,
-                                            )
-                                        },
-                                    ) {
-                                        SpaceSettings.setPersonalFiles(context, on)
-                                        personalFiles = on
-                                    }
-                                },
-                            )
-                        },
-                    )
-                }
-                if (MediaSync.isSupported()) {
-                    SettingRow(
-                        title = stringResource(R.string.sync_title),
-                        body = stringResource(R.string.sync_body),
-                        action = {
-                            Switch(
-                                checked = mediaSync,
-                                enabled = !busy && paired,
-                                onCheckedChange = { on ->
-                                    if (on) {
-                                        permissionLauncher.launch(MediaSync.mediaPermissions())
-                                    } else {
-                                        runSync(clearAll = true)
-                                    }
-                                },
-                            )
-                        },
-                    )
-                    if (mediaSync) {
-                        if (!downloadsAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                            SettingRow(
-                                title = stringResource(R.string.sync_downloads_title),
-                                body = stringResource(R.string.sync_downloads_body),
-                                action = {
-                                    TextButton(onClick = {
-                                        context.startActivity(
-                                            Intent(
-                                                Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                                                Uri.fromParts("package", context.packageName, null),
-                                            ),
-                                        )
-                                    }) { Text(stringResource(R.string.sync_downloads_allow)) }
-                                },
-                            )
-                        }
-                        Button(
-                            enabled = !busy,
-                            onClick = { runSync(clearAll = false) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text(stringResource(R.string.sync_now)) }
-                    }
-                }
-                TextButton(
-                    enabled = !busy,
-                    onClick = { send(BridgeCommand.destroy()) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.destroy_space), color = MaterialTheme.colorScheme.error)
-                }
-            }
-        }
-        if (isPaused) {
-            item {
-                NoticeCard(
-                    body = stringResource(R.string.quiet_mode_warning),
-                    container = MaterialTheme.colorScheme.errorContainer,
-                    content = MaterialTheme.colorScheme.onErrorContainer,
-                )
-            }
-        }
-        item {
-            NoticeCard(
-                title = stringResource(R.string.tip_title),
-                body = stringResource(R.string.tip_body),
-                container = MaterialTheme.colorScheme.secondaryContainer,
-                content = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
-        }
-
-        item { SectionHeader(stringResource(R.string.section_cloned)) }
-        if (current.cloned.isEmpty()) {
-            item {
-                Text(
-                    stringResource(R.string.no_clones),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
-            }
-        } else {
-            item {
-                NoticeCard(
-                    title = stringResource(R.string.share_tip_title),
-                    body = stringResource(R.string.share_tip_body),
-                    container = MaterialTheme.colorScheme.surfaceVariant,
-                    content = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        items(current.cloned, key = { "cloned:" + it.packageName }) { entry ->
-            AppRow(entry) {
-                Button(onClick = {
-                    if (!repository.launch(entry)) toast(context, R.string.launch_failed)
-                }) { Text(stringResource(R.string.action_launch)) }
-                CloneMenu(
-                    enabled = !busy,
-                    onShortcut = { shortcutTarget = entry },
-                    onBattery = {
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            when (tab) {
+                HomeTab.MY_APPS -> myAppsTab(
+                    cloned = current.cloned,
+                    paired = paired,
+                    isPaused = isPaused,
+                    busy = busy,
+                    onRecreate = onRecreate,
+                    onGoClone = { onTabChange(HomeTab.CLONE) },
+                    onLaunch = { entry -> if (!repository.launch(entry)) toast(context, R.string.launch_failed) },
+                    onShortcut = { shortcutTarget = it },
+                    onBattery = { entry ->
                         if (repository.openAppDetails(entry)) {
                             Toast.makeText(context, R.string.battery_hint, Toast.LENGTH_LONG).show()
                         } else {
                             toast(context, R.string.launch_failed)
                         }
                     },
-                    onRemove ={ send(BridgeCommand.uninstall(entry.packageName)) },
+                    onRemove = { send(BridgeCommand.uninstall(it.packageName)) },
                 )
-            }
-        }
 
-        item { SectionHeader(stringResource(R.string.section_available)) }
-        items(candidates, key = { "personal:" + it.packageName }) { entry ->
-            AppRow(entry, recommended = entry.packageName == CloneRepository.DISCORD) {
-                FilledTonalButton(enabled = !busy, onClick = {
-                    Toast.makeText(context, R.string.clone_in_progress, Toast.LENGTH_LONG).show()
-                    send(
-                        BridgeCommand.clone(entry.packageName),
-                        okMessage = { context.getString(R.string.clone_success, entry.label) },
+                HomeTab.CLONE -> {
+                    val clonedPackages = current.cloned.mapTo(HashSet()) { it.packageName }
+                    val candidates = current.personal
+                        .filterNot { it.packageName in clonedPackages }
+                        .filter { query.isBlank() || it.label.contains(query.trim(), ignoreCase = true) }
+                    cloneTab(
+                        candidates = candidates,
+                        query = query,
+                        onQueryChange = { query = it },
+                        busy = busy,
+                        onClone = { entry ->
+                            Toast.makeText(context, R.string.clone_in_progress, Toast.LENGTH_LONG).show()
+                            send(
+                                BridgeCommand.clone(entry.packageName),
+                                okMessage = { context.getString(R.string.clone_success, entry.label) },
+                            ) { onTabChange(HomeTab.MY_APPS) }
+                        },
                     )
-                }) { Text(stringResource(R.string.action_clone)) }
+                }
+
+                HomeTab.SETTINGS -> settingsTab {
+                    item {
+                        SettingsGroup(stringResource(R.string.settings_group_space)) {
+                            SettingRow(
+                                title = stringResource(R.string.space_name_label, spaceName),
+                                action = {
+                                    TextButton(enabled = !busy && paired, onClick = { renaming = true }) {
+                                        Text(stringResource(R.string.rename))
+                                    }
+                                },
+                            )
+                        }
+                    }
+                    item {
+                        SettingsGroup(stringResource(R.string.settings_group_files)) {
+                            if (hasSamsungMyFiles) {
+                                SettingRow(
+                                    title = stringResource(R.string.personal_files_title),
+                                    body = stringResource(R.string.personal_files_body),
+                                    action = {
+                                        Switch(
+                                            checked = personalFiles,
+                                            enabled = !busy && paired,
+                                            onCheckedChange = { on ->
+                                                send(
+                                                    BridgeCommand.personalFiles(on),
+                                                    okMessage = {
+                                                        context.getString(
+                                                            if (on) R.string.personal_files_on else R.string.personal_files_off,
+                                                        )
+                                                    },
+                                                ) {
+                                                    SpaceSettings.setPersonalFiles(context, on)
+                                                    personalFiles = on
+                                                }
+                                            },
+                                        )
+                                    },
+                                )
+                            }
+                            if (MediaSync.isSupported()) {
+                                SettingRow(
+                                    title = stringResource(R.string.sync_title),
+                                    body = stringResource(R.string.sync_body),
+                                    action = {
+                                        Switch(
+                                            checked = mediaSync,
+                                            enabled = !busy && paired,
+                                            onCheckedChange = { on ->
+                                                if (on) {
+                                                    permissionLauncher.launch(MediaSync.mediaPermissions())
+                                                } else {
+                                                    runSync(clearAll = true)
+                                                }
+                                            },
+                                        )
+                                    },
+                                )
+                                if (mediaSync) {
+                                    if (!downloadsAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                        SettingRow(
+                                            title = stringResource(R.string.sync_downloads_title),
+                                            body = stringResource(R.string.sync_downloads_body),
+                                            action = {
+                                                TextButton(onClick = {
+                                                    context.startActivity(
+                                                        Intent(
+                                                            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                                            Uri.fromParts("package", context.packageName, null),
+                                                        ),
+                                                    )
+                                                }) { Text(stringResource(R.string.sync_downloads_allow)) }
+                                            },
+                                        )
+                                    }
+                                    FilledTonalButton(
+                                        enabled = !busy,
+                                        onClick = { runSync(clearAll = false) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                    ) { Text(stringResource(R.string.sync_now)) }
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        SettingsGroup(stringResource(R.string.settings_group_help)) {
+                            HelpItem(stringResource(R.string.tip_title), stringResource(R.string.tip_body))
+                            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                            HelpItem(stringResource(R.string.share_tip_title), stringResource(R.string.share_tip_body))
+                        }
+                    }
+                    item {
+                        TextButton(
+                            enabled = !busy,
+                            onClick = { send(BridgeCommand.destroy()) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.destroy_space), color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
             }
         }
     }
@@ -388,29 +383,169 @@ fun AppListScreen(
     }
 }
 
-@Composable
-private fun SettingsCard(expanded: Boolean, onToggle: () -> Unit, content: @Composable () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Row(
+// ---------------------------------------------------------------- 탭: 내 앱
+
+private fun LazyListScope.myAppsTab(
+    cloned: List<AppEntry>,
+    paired: Boolean,
+    isPaused: Boolean,
+    busy: Boolean,
+    onRecreate: () -> Unit,
+    onGoClone: () -> Unit,
+    onLaunch: (AppEntry) -> Unit,
+    onShortcut: (AppEntry) -> Unit,
+    onBattery: (AppEntry) -> Unit,
+    onRemove: (AppEntry) -> Unit,
+) {
+    item {
+        when {
+            !paired -> {
+                StatusBanner(
+                    text = stringResource(R.string.recreate_title),
+                    detail = stringResource(R.string.recreate_body),
+                    ok = false,
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onRecreate, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.recreate_action))
+                }
+            }
+            isPaused -> StatusBanner(
+                text = stringResource(R.string.status_paused),
+                detail = stringResource(R.string.quiet_mode_warning),
+                ok = false,
+            )
+            else -> StatusBanner(text = stringResource(R.string.status_connected), ok = true)
+        }
+    }
+
+    if (cloned.isEmpty()) {
+        item {
+            Column(
                 Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = onToggle)
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(vertical = 48.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    stringResource(R.string.section_settings),
+                    stringResource(R.string.no_clones_title),
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
                 )
-                Icon(
-                    if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.no_clones),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = onGoClone) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(R.string.go_clone))
+                }
+            }
+        }
+    } else {
+        items(cloned, key = { "cloned:" + it.packageName }) { entry ->
+            AppCard(entry) {
+                Button(onClick = { onLaunch(entry) }) { Text(stringResource(R.string.action_launch)) }
+                CloneMenu(
+                    enabled = !busy,
+                    onShortcut = { onShortcut(entry) },
+                    onBattery = { onBattery(entry) },
+                    onRemove = { onRemove(entry) },
                 )
             }
-            if (expanded) content()
         }
+    }
+}
+
+// ---------------------------------------------------------------- 탭: 복제하기
+
+private fun LazyListScope.cloneTab(
+    candidates: List<AppEntry>,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    busy: Boolean,
+    onClone: (AppEntry) -> Unit,
+) {
+    item {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            placeholder = { Text(stringResource(R.string.search_apps)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    if (candidates.isEmpty()) {
+        item {
+            Text(
+                stringResource(R.string.no_search_results),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 24.dp),
+            )
+        }
+    }
+    items(candidates, key = { "personal:" + it.packageName }) { entry ->
+        AppCard(entry, recommended = entry.packageName == CloneRepository.DISCORD) {
+            FilledTonalButton(enabled = !busy, onClick = { onClone(entry) }) {
+                Text(stringResource(R.string.action_clone))
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- 탭: 설정
+
+private fun LazyListScope.settingsTab(content: LazyListScope.() -> Unit) = content()
+
+// ---------------------------------------------------------------- 공용 컴포넌트
+
+@Composable
+private fun StatusBanner(text: String, ok: Boolean, detail: String? = null) {
+    val container = if (ok) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer
+    val content = if (ok) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer
+    Card(
+        colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (ok) {
+                    Box(
+                        Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF2E7D32)),
+                    )
+                } else {
+                    Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.size(10.dp))
+                Text(text, style = MaterialTheme.typography.titleSmall)
+            }
+            if (detail != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(detail, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsGroup(title: String, content: @Composable () -> Unit) {
+    Text(
+        title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp),
+    )
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { content() }
     }
 }
 
@@ -419,7 +554,7 @@ private fun SettingRow(title: String, body: String? = null, action: @Composable 
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -428,39 +563,51 @@ private fun SettingRow(title: String, body: String? = null, action: @Composable 
                 Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        Spacer(Modifier.size(8.dp))
         action()
     }
 }
 
 @Composable
-private fun AppRow(
+private fun HelpItem(title: String, body: String) {
+    Column(Modifier.padding(vertical = 4.dp)) {
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.height(2.dp))
+        Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun AppCard(
     entry: AppEntry,
     recommended: Boolean = false,
     actions: @Composable () -> Unit,
 ) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Image(bitmap = entry.icon, contentDescription = null, modifier = Modifier.size(44.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                entry.label,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (recommended) {
-                AssistChip(onClick = {}, label = { Text(stringResource(R.string.recommended)) })
-            }
-        }
+    Card(modifier = Modifier.fillMaxWidth()) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-        ) { actions() }
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Image(bitmap = entry.icon, contentDescription = null, modifier = Modifier.size(44.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    entry.label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (recommended) {
+                    AssistChip(onClick = {}, label = { Text(stringResource(R.string.recommended)) })
+                }
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) { actions() }
+        }
     }
 }
 

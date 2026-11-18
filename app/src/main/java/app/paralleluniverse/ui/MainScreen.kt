@@ -7,6 +7,19 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -58,6 +71,9 @@ fun MainScreen() {
         refreshKey++
     }
 
+    var tab by rememberSaveable { mutableStateOf(HomeTab.MY_APPS) }
+    val showTabs = status == SpaceStatus.READY && profile != null
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -66,9 +82,20 @@ fun MainScreen() {
                     TextButton(onClick = {
                         context.startActivity(Intent(context, TransferActivity::class.java))
                     }) { Text(stringResource(R.string.parallel_files)) }
-                    TextButton(onClick = { refreshKey++ }) { Text(stringResource(R.string.refresh)) }
+                    IconButton(onClick = { refreshKey++ }) {
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
+                    }
                 },
             )
+        },
+        bottomBar = {
+            if (showTabs) {
+                NavigationBar {
+                    TabItem(HomeTab.MY_APPS, tab, Icons.Default.Home, R.string.tab_my_apps) { tab = it }
+                    TabItem(HomeTab.CLONE, tab, Icons.Default.Add, R.string.tab_clone) { tab = it }
+                    TabItem(HomeTab.SETTINGS, tab, Icons.Default.Settings, R.string.tab_settings) { tab = it }
+                }
+            }
         },
     ) { padding ->
         Box(
@@ -94,6 +121,8 @@ fun MainScreen() {
                         requester = requester,
                         isPaused = remember(refreshKey) { provisioning.isPaused(profile) },
                         refreshKey = refreshKey,
+                        tab = tab,
+                        onTabChange = { tab = it },
                         // 평행 공간 쪽 앱이 키가 없으면 삭제 확인 창을 띄운다.
                         onRecreate = {
                             if (!provisioning.openSpace(profile)) toast(context, R.string.bridge_failed)
@@ -116,4 +145,20 @@ fun MainScreen() {
             }
         }
     }
+}
+
+@Composable
+private fun RowScope.TabItem(
+    item: HomeTab,
+    selected: HomeTab,
+    icon: ImageVector,
+    label: Int,
+    onSelect: (HomeTab) -> Unit,
+) {
+    NavigationBarItem(
+        selected = item == selected,
+        onClick = { onSelect(item) },
+        icon = { Icon(icon, contentDescription = null) },
+        label = { Text(stringResource(label)) },
+    )
 }
