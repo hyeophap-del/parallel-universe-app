@@ -26,6 +26,27 @@ Android Studio(Ladybug 이상)에서 이 폴더를 열면 Gradle 동기화가 �
 - JDK 17, compileSdk 35, minSdk 28(Android 9)
 - 명령줄: Studio에서 Gradle wrapper를 생성한 뒤 `./gradlew assembleDebug`, `./gradlew test`를 실행합니다.
 
+## 릴리스
+`v`로 시작하는 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 디버그 APK를 빌드해 GitHub Release를 만들고 `parallel-universe-<태그>.apk`를 첨부합니다.
+```sh
+git tag v0.2.0 && git push origin v0.2.0
+```
+- 저장소에 들어 있는 고정 디버그 키로 서명하므로, 이전 릴리스나 CI 빌드 위에 그대로 업데이트 설치할 수 있습니다.
+- 태그를 올리기 전에 `app/build.gradle.kts`의 `versionCode`/`versionName`을 올려 두세요.
+
+## 자동 E2E 테스트
+`.github/workflows/e2e.yml`이 에뮬레이터(API 34)에서 `e2e/run.sh`를 실행해 복제 흐름 전체를 확인합니다.
+1. 프로비저닝 마법사 없이 셸 명령으로 업무 프로필을 만들고 이 앱을 Profile Owner로 지정합니다.
+2. 개인 공간에만 픽스처 앱(`e2e/fixture`)을 설치합니다.
+3. 앱 화면에서 픽스처의 "복제"를 누르고, 설치 확인 창과 '알 수 없는 앱 설치' 설정 화면을 자동으로 처리합니다.
+4. 픽스처가 프로필 사용자에 설치되었는지 확인합니다.
+
+실패하면 스크린샷, UI 덤프, logcat이 `e2e-out` 아티팩트로 올라갑니다. 직접 실행할 때는 에뮬레이터를 연결한 뒤 다음을 실행합니다(프로필을 새로 만들므로 실제 휴대폰에서는 쓰지 마세요).
+```sh
+gradle :app:assembleDebug :e2e-fixture:assembleDebug
+bash e2e/run.sh
+```
+
 ## 수동 테스트
 에뮬레이터는 Google Play 이미지 API 34 이상을 권장합니다.
 ```sh
