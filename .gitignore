@@ -12,4 +12,6 @@
 *.jks
 !/app/debug.keystore
 /dist/
+/e2e/fixture/build/
+/e2e/out/
 /.claude/

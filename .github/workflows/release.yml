@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+    branches: [ci/e2e] # TEMP dry run
+  # 시험 실행: 서명된 APK를 빌드·검증해 아티팩트로만 올린다(릴리스는 만들지 않는다).
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "시험용 versionName"
+        default: "v0.0.0-dryrun"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version_name || 'v0.0.0-dryrun' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # versionCode = git 커밋 수
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Decode release keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "::error::RELEASE_KEYSTORE_BASE64 secret is missing"
+            exit 1
+          fi
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.p12"
+
+      # 정식 키로 서명한 릴리스 APK. versionName은 태그(v0.2.0 → 0.2.0)에서 온다.
+      - name: Build release APK
+        env:
+          RELEASE_KEYSTORE: ${{ runner.temp }}/release.p12
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          VERSION_NAME: ${{ env.TAG }}
+        run: gradle :app:assembleRelease --stacktrace
+
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.p12"
+
+      - name: Verify signature
+        run: |
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
+          apk=app/build/outputs/apk/release/app-release.apk
+          certs=$("$apksigner" verify --print-certs "$apk")
+          printf '%s\n' "$certs" | grep -E 'Signer #1 certificate (DN|SHA-256)'
+          printf '%s\n' "$certs" | grep -q 'CN=Parallel Universe' || { echo "::error::APK is not signed with the release key"; exit 1; }
+          cp "$apk" "parallel-universe-${TAG}.apk"
+
+      - name: Upload APK (dry run)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: parallel-universe-${{ env.TAG }}
+          path: parallel-universe-${{ env.TAG }}.apk
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$TAG" "parallel-universe-${TAG}.apk" --title "$TAG" --generate-notes --verify-tag
