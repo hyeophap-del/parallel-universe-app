@@ -332,7 +332,14 @@ fun AppListScreen(
                 CloneMenu(
                     enabled = !busy,
                     onShortcut = { shortcutTarget = entry },
-                    onRemove = { send(BridgeCommand.uninstall(entry.packageName)) },
+                    onBattery = {
+                        if (repository.openAppDetails(entry)) {
+                            Toast.makeText(context, R.string.battery_hint, Toast.LENGTH_LONG).show()
+                        } else {
+                            toast(context, R.string.launch_failed)
+                        }
+                    },
+                    onRemove ={ send(BridgeCommand.uninstall(entry.packageName)) },
                 )
             }
         }
@@ -458,7 +465,12 @@ private fun AppRow(
 }
 
 @Composable
-private fun CloneMenu(enabled: Boolean, onShortcut: () -> Unit, onRemove: () -> Unit) {
+private fun CloneMenu(
+    enabled: Boolean,
+    onShortcut: () -> Unit,
+    onBattery: () -> Unit,
+    onRemove: () -> Unit,
+) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
@@ -470,6 +482,13 @@ private fun CloneMenu(enabled: Boolean, onShortcut: () -> Unit, onRemove: () -> 
                 onClick = {
                     open = false
                     onShortcut()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.battery_settings)) },
+                onClick = {
+                    open = false
+                    onBattery()
                 },
             )
             DropdownMenuItem(

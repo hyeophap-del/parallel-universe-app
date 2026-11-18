@@ -44,6 +44,8 @@
 
     <!-- 바로가기 -->
     <string name="add_shortcut">홈 화면에 바로가기 추가</string>
+    <string name="battery_settings">배터리 설정 열기(알림 안정화)</string>
+    <string name="battery_hint">\'배터리\'를 누르고 \'제한 없음\'을 선택하세요. 알림이 끊기지 않습니다.</string>
     <string name="shortcut_dialog_title">바로가기 이름</string>
     <string name="add">추가</string>
     <string name="shortcut_unsupported">이 홈 화면 앱은 바로가기 추가를 지원하지 않습니다</string>

@@ -53,6 +53,21 @@ class CloneRepository(private val context: Context) {
         false
     }
 
+    /**
+     * 복제한 앱의 '앱 정보' 화면(평행 공간 쪽)을 연다. 배터리를 '제한 없음'으로 바꾸면 삼성 기기가
+     * 오래 쓰지 않은 앱을 재우지 않아 알림이 끊기지 않는다. 다른 사용자 공간의 설정을 여는 공식 API다.
+     */
+    fun openAppDetails(entry: AppEntry): Boolean = try {
+        launcherApps.startAppDetailsActivity(entry.component, entry.user, null, null)
+        true
+    } catch (e: SecurityException) {
+        Log.w(TAG, "app details failed: ${entry.packageName}", e)
+        false
+    } catch (e: IllegalStateException) {
+        Log.w(TAG, "app details failed: ${entry.packageName}", e)
+        false
+    }
+
     private fun entries(user: UserHandle): List<AppEntry> {
         val activities: List<LauncherActivityInfo> = try {
             launcherApps.getActivityList(null, user)
