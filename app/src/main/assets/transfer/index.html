@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>평행파일</title>
+<style>
+  :root {
+    --bg: #f6f7fb; --card: #ffffff; --text: #1b1c1f; --muted: #5f6368; --line: #dde1e8;
+    --accent: #3b5bdb; --accent-text: #ffffff; --ok: #2b8a3e; --err: #c92a2a; --drop: #edf2ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121316; --card: #1d1f24; --text: #e8e9ec; --muted: #a0a4ab; --line: #33363d;
+      --accent: #91a7ff; --accent-text: #10131a; --ok: #69db7c; --err: #ff8787; --drop: #1f2638;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 0 0 12px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+  .btn {
+    display: inline-block; border: 0; border-radius: 10px; padding: 9px 16px; cursor: pointer;
+    background: var(--accent); color: var(--accent-text); font: inherit; font-weight: 600; text-decoration: none;
+  }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+  #pin {
+    font: 600 28px/1 ui-monospace, Consolas, monospace; letter-spacing: 8px; width: 12ch; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); margin-right: 8px;
+  }
+  .row-form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .msg { min-height: 1.5em; margin: 12px 0 0; color: var(--muted); }
+  .msg.err { color: var(--err); }
+  #drop {
+    border: 2px dashed var(--line); border-radius: 14px; padding: 32px 16px; text-align: center;
+    color: var(--muted); transition: background .15s, border-color .15s;
+  }
+  #drop.over { background: var(--drop); border-color: var(--accent); color: var(--text); }
+  #drop p { margin: 0 0 12px; }
+  ul.list { list-style: none; margin: 12px 0 0; padding: 0; }
+  ul.list li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+  ul.list li:first-child { border-top: 0; }
+  .info { flex: 1; min-width: 0; }
+  .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .meta.ok { color: var(--ok); }
+  .meta.err { color: var(--err); }
+  progress { width: 100%; height: 6px; margin-top: 4px; accent-color: var(--accent); }
+  .empty { color: var(--muted); margin: 8px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>평행파일</h1>
+  <p class="sub">휴대폰과 PC가 같은 Wi-Fi에 있으면 파일을 바로 주고받을 수 있습니다.</p>
+
+  <section id="login" class="card" hidden>
+    <h2>PIN 입력</h2>
+    <p>휴대폰의 평행파일 화면에 표시된 6자리 PIN을 입력하세요.</p>
+    <form id="loginForm" class="row-form" autocomplete="off">
+      <input id="pin" inputmode="numeric" maxlength="7" placeholder="000000" aria-label="PIN">
+      <button class="btn" type="submit" id="loginBtn">연결</button>
+    </form>
+    <p id="loginMsg" class="msg"></p>
+  </section>
+
+  <div id="app" hidden>
+    <section class="card">
+      <h2>휴대폰으로 보내기</h2>
+      <div id="drop">
+        <p>여기에 파일을 끌어다 놓으세요 (여러 개 가능)</p>
+        <label class="btn">파일 선택<input type="file" id="picker" multiple hidden></label>
+      </div>
+      <ul id="uploads" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <h2>휴대폰에서 받기</h2>
+      <p class="empty" id="filesEmpty">휴대폰의 평행파일 화면에서 '파일 선택'을 누르면 여기에 나타납니다.</p>
+      <ul id="files" class="list"></ul>
+    </section>
+  </div>
+
+  <p id="status" class="msg"></p>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const MAX_UPLOAD = 4 * 1024 * 1024 * 1024;
+  const POLL_MS = 3000;
+  const $ = (id) => document.getElementById(id);
+
+  let view = '';
+  let pollTimer = null;
+  let lastFilesJson = '';
+  const queue = [];
+  let uploading = false;
+
+  function show(next) {
+    view = next;
+    $('login').hidden = next !== 'login';
+    $('app').hidden = next !== 'app';
+  }
+
+  function setStatus(text, isError) {
+    const el = $('status');
+    el.textContent = text || '';
+    el.className = 'msg' + (isError ? ' err' : '');
+  }
+
+  function loginMessage(text, isError) {
+    const el = $('loginMsg');
+    el.textContent = text || '';
+    el.className = 'msg' + (isError ? ' err' : '');
+  }
+
+  function formatSize(n) {
+    if (n == null || n < 0) return '크기 알 수 없음';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let i = 0;
+    let v = n;
+    while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+    return (i === 0 ? String(v) : v.toFixed(v < 10 ? 1 : 0)) + ' ' + units[i];
+  }
+
+  function offline() {
+    setStatus('휴대폰에 연결할 수 없습니다. 휴대폰에서 평행파일 화면이 열려 있는지, 같은 Wi-Fi에 연결되어 있는지 확인하세요.', true);
+  }
+
+  async function request(method, url, body) {
+    return fetch(url, {
+      method,
+      body,
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { 'X-PU': '1' },
+    });
+  }
+
+  async function checkSession() {
+    try {
+      const r = await request('GET', '/api/session');
+      const j = await r.json();
+      setStatus('');
+      if (j.authenticated) enterApp(); else enterLogin();
+    } catch (e) {
+      offline();
+      setTimeout(checkSession, POLL_MS);
+    }
+  }
+
+  function enterLogin(message) {
+    stopPolling();
+    show('login');
+    loginMessage(message || '', !!message);
+    $('pin').focus();
+  }
+
+  function enterApp() {
+    show('app');
+    refreshFiles();
+    if (!pollTimer) pollTimer = setInterval(refreshFiles, POLL_MS);
+  }
+
+  function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  // ---- 로그인 ----
+  $('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pin = $('pin').value.replace(/\D/g, '');
+    if (pin.length !== 6) { loginMessage('6자리 숫자를 입력하세요.', true); return; }
+    $('loginBtn').disabled = true;
+    try {
+      const r = await request('POST', '/api/login', pin);
+      let j = {};
+      try { j = await r.json(); } catch (_) { /* 빈 응답 */ }
+      setStatus('');
+      if (r.ok && j.ok) {
+        $('pin').value = '';
+        loginMessage('');
+        enterApp();
+      } else if (j.error === 'wrong_pin') {
+        loginMessage('PIN이 맞지 않습니다. ' + j.remaining + '번 더 틀리면 PIN이 새로 바뀝니다.', true);
+      } else if (j.error === 'pin_reset') {
+        $('pin').value = '';
+        loginMessage('PIN을 여러 번 틀려 새 PIN으로 바뀌었습니다. 휴대폰 화면의 새 PIN을 입력하세요.', true);
+      } else if (j.error === 'locked') {
+        loginMessage(j.retryAfterSec + '초 후에 다시 시도하세요.', true);
+      } else {
+        loginMessage('연결하지 못했습니다. 다시 시도하세요.', true);
+      }
+    } catch (err) {
+      offline();
+    } finally {
+      $('loginBtn').disabled = false;
+    }
+  });
+
+  // ---- 휴대폰에서 받기 ----
+  async function refreshFiles() {
+    try {
+      const r = await request('GET', '/api/files');
+      if (r.status === 401) { enterLogin('연결이 새로 시작되었습니다. 휴대폰 화면의 PIN을 다시 입력하세요.'); return; }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      setStatus('');
+      renderFiles(j.files || []);
+    } catch (e) {
+      offline();
+    }
+  }
+
+  function renderFiles(files) {
+    const json = JSON.stringify(files);
+    if (json === lastFilesJson) return;
+    lastFilesJson = json;
+    const list = $('files');
+    list.textContent = '';
+    $('filesEmpty').hidden = files.length > 0;
+    for (const f of files) {
+      const li = document.createElement('li');
+      const info = document.createElement('div');
+      info.className = 'info';
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = f.name;
+      name.title = f.name;
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = formatSize(f.size);
+      info.append(name, meta);
+      const link = document.createElement('a');
+      link.className = 'btn ghost';
+      link.href = '/api/files/' + encodeURIComponent(f.id);
+      link.setAttribute('download', f.name);
+      link.textContent = '내려받기';
+      li.append(info, link);
+      list.append(li);
+    }
+  }
+
+  // ---- 휴대폰으로 보내기 ----
+  function makeUploadRow(file) {
+    const li = document.createElement('li');
+    const info = document.createElement('div');
+    info.className = 'info';
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = file.name;
+    name.title = file.name;
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = formatSize(file.size) + ' · 대기 중';
+    const bar = document.createElement('progress');
+    bar.max = 1;
+    bar.value = 0;
+    info.append(name, meta, bar);
+    li.append(info);
+    $('uploads').prepend(li);
+    const size = formatSize(file.size);
+    return {
+      progress(ratio) {
+        bar.value = ratio;
+        meta.className = 'meta';
+        meta.textContent = size + ' · ' + Math.floor(ratio * 100) + '%';
+      },
+      done(savedName) {
+        bar.value = 1;
+        bar.hidden = true;
+        meta.className = 'meta ok';
+        meta.textContent = size + ' · 보냄' + (savedName && savedName !== file.name ? ' (' + savedName + '(으)로 저장)' : '');
+      },
+      fail(message) {
+        bar.hidden = true;
+        meta.className = 'meta err';
+        meta.textContent = message;
+      },
+    };
+  }
+
+  function addFiles(fileList) {
+    if (view !== 'app') return;
+    for (const file of fileList) {
+      const row = makeUploadRow(file);
+      if (file.size > MAX_UPLOAD) { row.fail('4GB보다 큰 파일은 보낼 수 없습니다.'); continue; }
+      queue.push({ file, row });
+    }
+    pump();
+  }
+
+  function uploadError(status, code) {
+    if (status === 401) return '연결이 끊겼습니다. PIN을 다시 입력한 뒤 보내세요.';
+    if (status === 413 || code === 'too_large') return '4GB보다 큰 파일은 보낼 수 없습니다.';
+    if (status === 507 || code === 'storage_full') return '휴대폰 저장 공간이 부족합니다.';
+    if (status === 0) return '전송이 중단되었습니다. 연결을 확인하세요.';
+    return '보내지 못했습니다.';
+  }
+
+  function pump() {
+    if (uploading || queue.length === 0) return;
+    uploading = true;
+    const { file, row } = queue.shift();
+    row.progress(0);
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', '/api/upload');
+    xhr.setRequestHeader('X-PU', '1');
+    xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable && e.total > 0) row.progress(e.loaded / e.total); };
+    xhr.onload = () => {
+      let j = {};
+      try { j = JSON.parse(xhr.responseText); } catch (_) { /* 무시 */ }
+      if (xhr.status === 200 && j.ok) {
+        row.done(j.name);
+      } else {
+        row.fail(uploadError(xhr.status, j.error));
+        if (xhr.status === 401) {
+          for (const item of queue.splice(0)) item.row.fail(uploadError(401));
+          enterLogin('연결이 새로 시작되었습니다. 휴대폰 화면의 PIN을 다시 입력하세요.');
+        }
+      }
+      next();
+    };
+    xhr.onerror = () => { row.fail(uploadError(0)); next(); };
+    xhr.onabort = xhr.onerror;
+    xhr.send(file);
+  }
+
+  function next() {
+    uploading = false;
+    pump();
+  }
+
+  $('picker').addEventListener('change', (e) => {
+    addFiles(e.target.files);
+    e.target.value = '';
+  });
+
+  const drop = $('drop');
+  let dragDepth = 0;
+  drop.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) drop.classList.remove('over'); });
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+  drop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragDepth = 0;
+    drop.classList.remove('over');
+    if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+  });
+  // 영역 밖에 떨어뜨려도 브라우저가 파일을 열어 페이지를 떠나지 않게 한다.
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => e.preventDefault());
+
+  window.addEventListener('beforeunload', (e) => {
+    if (uploading || queue.length > 0) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  checkSession();
+})();
+</script>
+</body>
+</html>

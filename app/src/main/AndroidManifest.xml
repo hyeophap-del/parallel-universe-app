@@ -4,6 +4,8 @@
     <!-- 프로필 안에서 복제본을 삭제할 때 시스템 삭제 확인 화면을 띄우기 위함 -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 평행파일: PC가 접속할 Wi-Fi 주소 확인 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- 개인 공간 ↔ 평행 공간의 이 앱끼리 화면을 주고받기 위한 "연결된 개인 및 업무 앱" 권한 (Android 11+) -->
     <uses-permission android:name="android.permission.INTERACT_ACROSS_PROFILES" />
@@ -82,5 +84,6 @@
                 <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
             </intent-filter>
         </receiver>
+        <activity android:name=".transfer.TransferActivity" android:exported="false" />
     </application>
 </manifest>
