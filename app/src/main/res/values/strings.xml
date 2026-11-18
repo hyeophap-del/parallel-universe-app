@@ -26,10 +26,13 @@
     <string name="action_launch">실행</string>
     <string name="action_remove">제거</string>
     <string name="launch_failed">앱을 실행하지 못했습니다. 업무 앱이 일시중지되어 있는지 확인하세요.</string>
-    <string name="bridge_failed">평행 공간에 연결하지 못했습니다. 빠른 설정에서 업무 앱이 켜져 있는지 확인하세요.</string>
-    <string name="repairing">평행 공간 연결을 복구하고 있습니다…</string>
-    <string name="repair_done">평행 공간 설정을 적용했습니다</string>
     <string name="more">더보기</string>
+
+    <!-- 개인 공간: 평행 공간 열기 -->
+    <string name="open_space_title">평행 공간이 준비되어 있습니다</string>
+    <string name="open_space_body">앱 복제와 관리는 평행 공간 안에서 합니다. 아래 버튼을 눌러 관리 화면을 여세요.</string>
+    <string name="open_space">평행 공간 열기</string>
+    <string name="open_failed">평행 공간을 열지 못했습니다. 빠른 설정에서 업무 앱이 켜져 있는지 확인하세요.</string>
 
     <!-- 바로가기 -->
     <string name="add_shortcut">홈 화면에 바로가기 추가</string>

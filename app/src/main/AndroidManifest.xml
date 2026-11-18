@@ -28,27 +28,6 @@
             </intent-filter>
         </activity>
 
-        <!--
-            프로필(평행 공간) 쪽에서만 동작하는 작업용 Activity.
-            기본은 비활성화 상태이고, 프로필 생성이 끝나면 프로필 쪽에서만 활성화한다.
-            그래야 개인 공간에서 보낸 인텐트가 선택 창 없이 곧바로 프로필로 전달된다.
-        -->
-        <activity
-            android:name=".profile.ProfileActionActivity"
-            android:enabled="false"
-            android:excludeFromRecents="true"
-            android:exported="true"
-            android:noHistory="true"
-            android:theme="@style/Theme.ParallelUniverse.Translucent">
-            <intent-filter>
-                <action android:name="app.paralleluniverse.action.CLONE" />
-                <action android:name="app.paralleluniverse.action.UNINSTALL" />
-                <action android:name="app.paralleluniverse.action.DESTROY" />
-                <action android:name="app.paralleluniverse.action.RENAME" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
-
         <!-- 홈 화면 바로가기가 실행하는 투명 Activity: 평행 공간의 앱을 열고 바로 닫힌다. -->
         <activity
             android:name=".shortcut.ShortcutLaunchActivity"

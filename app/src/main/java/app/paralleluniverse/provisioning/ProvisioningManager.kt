@@ -1,13 +1,16 @@
 package app.paralleluniverse.provisioning
 
 import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.CrossProfileApps
 import android.os.Build
 import android.os.UserHandle
 import android.os.UserManager
+import android.util.Log
 import app.paralleluniverse.admin.CloneAdminReceiver
+import app.paralleluniverse.ui.MainActivity
 
 /** 평행 공간 생성과 상태 조회를 담당한다. 개인 공간에서 사용한다. */
 class ProvisioningManager(private val context: Context) {
@@ -32,6 +35,25 @@ class ProvisioningManager(private val context: Context) {
     )
 
     fun isPaused(profile: UserHandle): Boolean = userManager.isQuietModeEnabled(profile)
+
+    /**
+     * 평행 공간 안의 이 앱(관리 화면)을 연다. cross-profile 필터 없이 동작하는 공식 API다.
+     * @return 열었으면 true. 업무 앱이 일시중지된 경우 등에는 false
+     */
+    fun openSpace(profile: UserHandle): Boolean = try {
+        crossProfileApps.startMainActivity(ComponentName(context, MainActivity::class.java), profile)
+        true
+    } catch (e: SecurityException) {
+        Log.w(TAG, "openSpace failed", e)
+        false
+    } catch (e: IllegalStateException) {
+        Log.w(TAG, "openSpace failed", e)
+        false
+    }
+
+    private companion object {
+        const val TAG = "ProvisioningManager"
+    }
 
     /** 시스템 프로필 생성 마법사를 여는 인텐트. startActivityForResult로 실행한다. */
     fun createProfileIntent(): Intent =
