@@ -27,7 +27,12 @@ object ProfileSetup {
 
         dpm.clearCrossProfileIntentFilters(admin)
         for ((filter, direction) in crossProfileFilters()) {
-            dpm.addCrossProfileIntentFilter(admin, filter, direction)
+            try {
+                dpm.addCrossProfileIntentFilter(admin, filter, direction)
+                Log.i("DEBUG-pu7", "add ok dir=$direction actions=${filter.actionsIterator().asSequence().toList()}")
+            } catch (e: Exception) {
+                Log.e("DEBUG-pu7", "add FAILED dir=$direction", e)
+            }
         }
 
         // 요청을 처리하는 Activity는 프로필 쪽에서만 켠다.
@@ -45,6 +50,12 @@ object ProfileSetup {
         }
 
         dpm.setProfileEnabled(admin)
+
+        val self = context.packageManager.queryIntentActivities(
+            Intent(ProfileBridge.ACTION_CLONE), PackageManager.MATCH_DEFAULT_ONLY,
+        )
+        Log.i("DEBUG-pu7", "profile-side CLONE resolves to: ${self.map { it.activityInfo.name }}")
+        Log.i("DEBUG-pu7", "sdk=${android.os.Build.VERSION.SDK_INT} isPO=${dpm.isProfileOwnerApp(context.packageName)}")
     }
 
     fun rename(context: Context, name: String) {
