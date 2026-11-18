@@ -45,6 +45,9 @@ collect() {
     adb logcat -d -v threadtime >"$OUT/logcat.txt" 2>/dev/null || true
     sh_ dumpsys user >"$OUT/dumpsys-user.txt" 2>/dev/null || true
     sh_ dumpsys package "$FIXTURE" >"$OUT/dumpsys-fixture.txt" 2>/dev/null || true
+    if [ -n "${PROFILE:-}" ]; then
+        sh_ appops get --user "$PROFILE" "$APP" >"$OUT/appops-profile.txt" 2>/dev/null || true
+    fi
     exit $status
 }
 trap collect EXIT
@@ -240,13 +243,19 @@ drive_install() {
         if installed_for "$PROFILE" "$FIXTURE"; then return 0; fi
         if dump_ui; then
             if nodes | grep -qiE 'text="(Allow from this source|이 출처 허용)"'; then
-                # 설정 화면: 스위치를 켜고 뒤로 간다.
-                if nodes | grep -i 'class="android.widget.Switch"' | grep -q 'checked="false"'; then
+                # 설정 화면: 스위치를 켜고 뒤로 간다. API 34의 설정(SPA, Compose)은 android.widget.Switch가 아니라
+                # checkable="true"인 줄 전체가 스위치다.
+                toggle=$(nodes | grep 'checkable="true"' | head -n 1)
+                if [ -z "$toggle" ]; then
+                    log "unknown-sources toggle not found in UI dump"
+                elif printf '%s\n' "$toggle" | grep -q 'checked="false"'; then
                     [ "$last" = toggle ] || snap unknown-sources
-                    tap_text "Allow from this source" || tap_text "이 출처 허용" || true
+                    log "turning on 'Allow from this source'"
+                    tap_bounds "$(printf '%s\n' "$toggle" | bounds)"
                     last=toggle
                 else
-                    log "unknown sources allowed; going back"
+                    snap unknown-sources-on
+                    log "unknown sources allowed ($(sh_ appops get --user "$PROFILE" "$APP" REQUEST_INSTALL_PACKAGES)); going back"
                     adb shell input keyevent KEYCODE_BACK
                     last=back
                 fi
