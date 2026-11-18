@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- 개인 공간 앱 ↔ 평행 공간 앱 사이의 기기 내부 통로(127.0.0.1, LocalBridge) -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 평행파일: PC가 접속할 Wi-Fi 주소 확인 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- QUERY_ALL_PACKAGES 대신 런처 앱만 조회 (Play 정책 대응) -->
     <queries>
@@ -81,5 +83,6 @@
                 <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
             </intent-filter>
         </receiver>
+        <activity android:name=".transfer.TransferActivity" android:exported="false" />
     </application>
 </manifest>
