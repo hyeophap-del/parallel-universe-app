@@ -11,7 +11,10 @@ class ProfileRequester(private val context: Context, private val provisioning: P
 
     suspend fun request(command: BridgeCommand, profile: UserHandle): LocalBridge.Outcome =
         withContext(Dispatchers.IO) {
+            // 키가 없으면 보안 업데이트 이전에 만든 공간이다. 다시 만들어야 한다.
+            val key = BridgeKeyStore.get(context) ?: return@withContext LocalBridge.Outcome.UNPAIRED
             LocalBridge.serve(
+                key,
                 command,
                 payload = { out ->
                     if (command.action == BridgeCommand.Action.CLONE) ApkTransfer.send(context, command.arg, out)

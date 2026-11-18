@@ -45,6 +45,7 @@ import app.paralleluniverse.R
 import app.paralleluniverse.profile.AppEntry
 import app.paralleluniverse.profile.AppsSnapshot
 import app.paralleluniverse.profile.BridgeCommand
+import app.paralleluniverse.profile.BridgeKeyStore
 import app.paralleluniverse.profile.CloneRepository
 import app.paralleluniverse.profile.LocalBridge
 import app.paralleluniverse.profile.ProfileRequester
@@ -62,8 +63,10 @@ fun AppListScreen(
     requester: ProfileRequester,
     isPaused: Boolean,
     refreshKey: Int,
+    onRecreate: () -> Unit,
 ) {
     val context = LocalContext.current
+    val paired = remember(refreshKey) { BridgeKeyStore.has(context) }
     val scope = rememberCoroutineScope()
     var snapshot by remember { mutableStateOf<AppsSnapshot?>(null) }
     var localRefresh by remember { mutableIntStateOf(0) }
@@ -91,6 +94,7 @@ fun AppListScreen(
                 }
                 LocalBridge.Outcome.FAILED -> toast(context, R.string.bridge_failed)
                 LocalBridge.Outcome.NO_ANSWER -> toast(context, R.string.bridge_no_answer)
+                LocalBridge.Outcome.UNPAIRED -> toast(context, R.string.bridge_unpaired)
             }
         }
     }
@@ -108,6 +112,21 @@ fun AppListScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (!paired) {
+            item {
+                NoticeCard(
+                    title = stringResource(R.string.recreate_title),
+                    body = stringResource(R.string.recreate_body),
+                    container = MaterialTheme.colorScheme.errorContainer,
+                    content = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+            item {
+                Button(onClick = onRecreate, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.recreate_action))
+                }
+            }
+        }
         if (isPaused) {
             item {
                 NoticeCard(

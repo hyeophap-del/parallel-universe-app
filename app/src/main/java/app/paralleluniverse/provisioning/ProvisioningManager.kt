@@ -10,6 +10,7 @@ import android.os.UserHandle
 import android.os.UserManager
 import android.util.Log
 import app.paralleluniverse.admin.CloneAdminReceiver
+import app.paralleluniverse.profile.BridgeKeyStore
 import app.paralleluniverse.ui.MainActivity
 
 /** 평행 공간 생성과 상태 조회를 담당한다. 개인 공간에서 사용한다. */
@@ -61,6 +62,11 @@ class ProvisioningManager(private val context: Context) {
             putExtra(
                 DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME,
                 CloneAdminReceiver.component(context),
+            )
+            // LocalBridge 비밀 키: 시스템이 새 프로필 안의 관리자 앱에 그대로 전달한다(가로챌 수 없는 경로).
+            putExtra(
+                DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE,
+                BridgeKeyStore.createForProvisioning(context),
             )
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 putExtra(DevicePolicyManager.EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS, true)

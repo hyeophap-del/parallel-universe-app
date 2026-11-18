@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import app.paralleluniverse.R
 import app.paralleluniverse.profile.ApkTransfer
 import app.paralleluniverse.profile.BridgeCommand
+import app.paralleluniverse.profile.BridgeKeyStore
 import app.paralleluniverse.profile.LocalBridge
 import app.paralleluniverse.profile.ProfileActions
 import app.paralleluniverse.profile.ProfileSetup
@@ -42,10 +43,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleBridgeCommand() {
+        val key = BridgeKeyStore.get(this)
+        if (key == null) {
+            // 보안 업데이트 이전에 만든 공간: 비밀 키가 없어 개인 공간과 안전하게 연결할 수 없다.
+            // 개인 공간 앱의 '다시 만들기' 버튼이나 업무 앱 서랍의 아이콘으로 이 화면이 열린다.
+            confirmDestroy(R.string.recreate_confirm_title, R.string.recreate_confirm_body)
+            return
+        }
         lifecycleScope.launch {
             var destroyRequested = false
             val command = withContext(Dispatchers.IO) {
-                LocalBridge.receive { command, input ->
+                LocalBridge.receive(key) { command, input ->
                     when (command.action) {
                         BridgeCommand.Action.CLONE ->
                             ApkTransfer.receiveAndInstall(this@MainActivity, command.arg, input)
@@ -71,16 +79,16 @@ class MainActivity : ComponentActivity() {
                     startActivity(ProfileActions.uninstallIntent(command.arg))
                     finish()
                 }
-                destroyRequested -> confirmDestroy()
+                destroyRequested -> confirmDestroy(R.string.destroy_confirm_title, R.string.destroy_confirm_body)
                 else -> finish()
             }
         }
     }
 
-    private fun confirmDestroy() {
+    private fun confirmDestroy(title: Int, body: Int) {
         AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
-            .setTitle(R.string.destroy_confirm_title)
-            .setMessage(R.string.destroy_confirm_body)
+            .setTitle(title)
+            .setMessage(body)
             .setPositiveButton(R.string.delete) { _, _ -> ProfileActions.destroy(applicationContext) }
             .setNegativeButton(R.string.cancel, null)
             .setOnDismissListener { finish() }

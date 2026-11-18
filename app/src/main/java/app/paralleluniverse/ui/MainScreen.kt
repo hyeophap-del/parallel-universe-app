@@ -94,6 +94,10 @@ fun MainScreen() {
                         requester = requester,
                         isPaused = remember(refreshKey) { provisioning.isPaused(profile) },
                         refreshKey = refreshKey,
+                        // 평행 공간 쪽 앱이 키가 없으면 삭제 확인 창을 띄운다.
+                        onRecreate = {
+                            if (!provisioning.openSpace(profile)) toast(context, R.string.bridge_failed)
+                        },
                     )
                 }
 
